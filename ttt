@@ -1,0 +1,71 @@
+[33mcommit 62e51db0cc5066544b792f519edde5a6d242befd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Merge: add69ab 7004dd4
+Author: Sergei Benjamin Tabanar <sergeitabanar7@gmail.com>
+Date:   Sat Nov 9 16:36:59 2024 +0800
+
+    merge
+
+[33mcommit 7004dd49105ce995ea654b09fc5aa888776d12c8[m[33m ([m[1;31morigin/main[m[33m)[m
+Merge: d7d5eee 89db137
+Author: eulerProof <153839905+eulerProof@users.noreply.github.com>
+Date:   Sat Nov 9 11:48:15 2024 +0800
+
+    Merge pull request #1 from SBTabanar/dashboard-marcellana-sasi
+    
+    Dashboard merged with main
+
+[33mcommit 89db137595e8afb260e7a922800efb959ac09c11[m
+Author: eulerProof <joshuaanthony.sasi@wvsu.edu.ph>
+Date:   Thu Nov 7 21:49:51 2024 +0800
+
+    Added TabBar and SOS Button
+
+[33mcommit 0b82cdca5c28ffa867266a6b4edc3b079ec97f77[m
+Merge: d6321ed 01bd62f
+Author: eulerProof <joshuaanthony.sasi@wvsu.edu.ph>
+Date:   Wed Oct 23 23:44:15 2024 +0800
+
+    Added Basic Interactability Functions
+
+[33mcommit d6321edc30b1cd873aac9418732dc22cef96c086[m
+Author: eulerProof <joshuaanthony.sasi@wvsu.edu.ph>
+Date:   Wed Oct 23 23:37:08 2024 +0800
+
+    Added Basic Interactability Functions
+
+[33mcommit 01bd62f885554e4726a4fc1ac283af51b2950f4f[m
+Author: gitbij <bjlouis.marcellana@wvsu.edu.ph>
+Date:   Wed Oct 2 22:04:37 2024 +0800
+
+    layout made in dashboard + design
+
+[33mcommit efdcff8162ec52bf0e4c10e5b251eea0acb7cefb[m
+Author: eulerProof <joshuaanthony.sasi@wvsu.edu.ph>
+Date:   Fri Sep 20 23:20:30 2024 +0800
+
+    Dashboard Added
+
+[33mcommit add69ab7ec22867a32641a7f50c131be852f6621[m
+Author: Sergei Benjamin Tabanar <sergeitabanar7@gmail.com>
+Date:   Thu Sep 19 13:02:50 2024 +0800
+
+    Initial sign up page done
+
+[33mcommit d7d5eee7a0d49ae06d3a58e5c2aa4cd22d32650b[m
+Merge: 17f0c06 e9d7296
+Author: Sergei Benjamin Tabanar <sergeitabanar7@gmail.com>
+Date:   Thu Sep 19 12:28:59 2024 +0800
+
+    Initial Commit:
+
+[33mcommit 17f0c062fe25eaa8bb2440503f8b295b39532204[m[33m ([m[1;31morigin/tabanar[m[33m)[m
+Author: Sergei Benjamin Tabanar <sergeitabanar7@gmail.com>
+Date:   Thu Sep 19 12:05:45 2024 +0800
+
+    Initial commit, fresh flutter project
+
+[33mcommit e9d729632d62400f0a9353b843f1a606774b95ff[m
+Author: SBTabanar <112944076+SBTabanar@users.noreply.github.com>
+Date:   Thu Sep 19 11:45:18 2024 +0800
+
+    Initial commit

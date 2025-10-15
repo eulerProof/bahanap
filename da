@@ -1,0 +1,24 @@
+[33mcommit add69ab7ec22867a32641a7f50c131be852f6621[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: Sergei Benjamin Tabanar <sergeitabanar7@gmail.com>
+Date:   Thu Sep 19 13:02:50 2024 +0800
+
+    Initial sign up page done
+
+[33mcommit d7d5eee7a0d49ae06d3a58e5c2aa4cd22d32650b[m
+Merge: 17f0c06 e9d7296
+Author: Sergei Benjamin Tabanar <sergeitabanar7@gmail.com>
+Date:   Thu Sep 19 12:28:59 2024 +0800
+
+    Initial Commit:
+
+[33mcommit 17f0c062fe25eaa8bb2440503f8b295b39532204[m[33m ([m[1;31morigin/tabanar[m[33m)[m
+Author: Sergei Benjamin Tabanar <sergeitabanar7@gmail.com>
+Date:   Thu Sep 19 12:05:45 2024 +0800
+
+    Initial commit, fresh flutter project
+
+[33mcommit e9d729632d62400f0a9353b843f1a606774b95ff[m
+Author: SBTabanar <112944076+SBTabanar@users.noreply.github.com>
+Date:   Thu Sep 19 11:45:18 2024 +0800
+
+    Initial commit

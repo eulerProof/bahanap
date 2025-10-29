@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:cc206_bahanap/features/user_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'image_provider.dart';
@@ -25,13 +26,26 @@ class _DashboardPageState extends State<DashboardPage> {
   String currentAddress = "Fetching address...";
   final TextEditingController _textController = TextEditingController();
   String _responseMessage = '';
-
+  String _coordinates = '';
+  
   @override
   void dispose() {
     _textController.dispose();
     super.dispose();
   }
 
+  
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeUser();
+    _fetchLocation();
+  }
+Future<void> _initializeUser() async {
+    await UserService().fetchUsername();
+    print("Username stored: ${UserService().username}");
+  }
   Future<void> uploadLocation(double lat, double lon) async {
     final String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (uid.isEmpty) {
@@ -50,13 +64,6 @@ class _DashboardPageState extends State<DashboardPage> {
       print("Error updating location: $e");
     }
   }
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchLocation();
-  }
-
   Future<void> _signOut() async {
     await FirebaseAuth.instance.signOut();
     Navigator.pushReplacementNamed(context, 'welcome');
@@ -140,11 +147,14 @@ class _DashboardPageState extends State<DashboardPage> {
         });
         return;
       }
-
+      final message = {
+        "text": _textController.text,
+        "coordinates": "Placeholder. This is merely for testing. May all go well."
+      };
       final response = await http.post(
         Uri.parse('http://$esp32IP/message'),
-        headers: {'Content-Type': 'text/plain; charset=UTF-8'},
-        body: _textController.text,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: jsonEncode(message),
       );
 
       setState(() {
@@ -185,13 +195,28 @@ class _DashboardPageState extends State<DashboardPage> {
       final response = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
 
       setState(() {
-        if (response.statusCode == 200) {
-          _responseMessage = response.body;
-        } else {
-          _responseMessage =
-              'Failed to receive message. Status: ${response.statusCode}';
+      if (response.statusCode == 200) {
+        try {
+          final data = jsonDecode(response.body);
+          
+          if (data is Map) {
+            // Safely extract both fields
+            _responseMessage = data["text"]?.toString() ?? "No text found";
+            // _coordinates = data['coordinates']?.toString() ?? "No coordinates";
+          } else {
+            _responseMessage = "Invalid JSON format";
+            _coordinates = "";
+          }
+        } catch (e) {
+          _responseMessage = "Error parsing JSON: $e";
+          _coordinates = "";
         }
-      });
+      } else {
+        _responseMessage =
+            'Failed to receive message. Status: ${response.statusCode}';
+        _coordinates = "";
+      }
+    });
     } catch (e) {
       setState(() {
         _responseMessage = 'Error: $e';
@@ -316,14 +341,28 @@ class _DashboardPageState extends State<DashboardPage> {
                       Padding(
                         padding: EdgeInsets.all(8),
                         child: GestureDetector(
-                          child: Card(
-                            color: Color(0xffa1d9f4),
-                            elevation: 10,
-                            child: Column(
+                          child: 
+                          
+                          Container(
+                            padding: EdgeInsets.fromLTRB(0,10,0,0),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(23),
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xff2B96C7),
+                                  Color(0xff064400),
+                                
+                                  
+                                ],
+                                begin: FractionalOffset(0.0, 0.0),
+                                end: FractionalOffset(0.0, 1.0)
+                              )
+                            ),
+                            child: const Column(
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
-                                const SizedBox(height: 6),
-                                const Text(
+                                SizedBox(height: 6),
+                                Text(
                                   'Water Level',
                                   style: TextStyle(
                                       letterSpacing: 0.5,
@@ -340,8 +379,27 @@ class _DashboardPageState extends State<DashboardPage> {
                                       color: Colors.white),
                                   textAlign: TextAlign.center,
                                 ),
-                                Image.asset('assets/waterlevel.png',
-                                    height: 130.2),
+                                SizedBox(height: 22),
+                                 Center(
+                                  child: Text("Low",
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'Gilroy',
+                                      color: Colors.lightGreen,
+                                      shadows: [
+                                        Shadow(
+                                          offset: Offset.zero,
+                                          blurRadius: 10.0,
+                                          color: Colors.green,
+                                          
+                                        ),
+                                      ],
+                                    ),
+                                    ),
+                                 )
+                                  
+                                
                               ],
                             ),
                           ),
@@ -367,18 +425,29 @@ class _DashboardPageState extends State<DashboardPage> {
                       Padding(
                         padding: EdgeInsets.all(8),
                         child: GestureDetector(
-                          child: Card(
-                            color: Color(0xffa1d9f4),
-                            elevation: 10,
+                          child: Container(
+                            
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(23),
+                              gradient: const LinearGradient(
+                                colors: [
+                                Color(0xff7F7F7F),
+                                  Color(0xff232323),
+                                ],
+                                begin: FractionalOffset(0.0, 0.0),
+                                end: FractionalOffset(0.0, 1.0)
+                              )
+                            ),
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                const SizedBox(height: 6),
+                                
                                 const Text(
-                                  'Flood Probability',
+                                  'Risk Level',
                                   style: TextStyle(
                                     letterSpacing: 0.5,
-                                    fontSize: 19,
+                                    fontSize: 22,
                                     fontWeight: FontWeight.bold,
                                     fontFamily: 'SfPro',
                                     shadows: [
@@ -392,14 +461,26 @@ class _DashboardPageState extends State<DashboardPage> {
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
-                                const SizedBox(height: 8),
-                                Image.asset(
-                                  'assets/floodprob.png',
-                                  color: Colors.white,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  height: 120,
+                                const Text(
+                                  'Minimal Risk',
+                                  style: TextStyle(
+                                    letterSpacing: 0.5,
+                                    fontSize: 15,
+                                    
+                                    fontFamily: 'SfPro',
+                                    
+                                    color: Colors.white,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
+                                const SizedBox(height: 8),
+                                // Image.asset(
+                                //   'assets/floodprob.png',
+                                //   color: Colors.white,
+                                //   fit: BoxFit.cover,
+                                //   width: double.infinity,
+                                //   height: 120,
+                                // ),
                               ],
                             ),
                           ),
@@ -425,15 +506,27 @@ class _DashboardPageState extends State<DashboardPage> {
                       Padding(
                         padding: EdgeInsets.all(8),
                         child: GestureDetector(
-                          child: Card(
-                            color: Color(0xffa1d9f4),
-                            elevation: 10,
+                          child: Container(
+                            padding: EdgeInsets.fromLTRB(20,10,0,15),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(23),
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xff0899F8),
+                                Color(0xff055A92),
+                                  
+                                ],
+                                begin: FractionalOffset(0.0, 0.0),
+                                end: FractionalOffset(0.0, 1.0)
+                              )
+                            ),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const SizedBox(height: 6),
                                 const Text(
-                                  'Evacuation',
+                                  'Disaster Preparedness Guidelines',
                                   style: TextStyle(
                                       letterSpacing: 0.5,
                                       fontSize: 22,
@@ -447,10 +540,20 @@ class _DashboardPageState extends State<DashboardPage> {
                                         ),
                                       ],
                                       color: Colors.white),
-                                  textAlign: TextAlign.center,
+                                  textAlign: TextAlign.start,
                                 ),
-                                Image.asset('assets/evacuation.png',
-                                    height: 130, color: Color(0xff247ba3)),
+                                Spacer(),
+                                const Text("View",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                      fontSize: 16,
+                                      
+                                      fontFamily: 'SfPro',
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: Colors.white,
+                                      color: Colors.white), textAlign: TextAlign.left,)
+                                
                               ],
                             ),
                           ),
@@ -476,15 +579,26 @@ class _DashboardPageState extends State<DashboardPage> {
                       Padding(
                         padding: EdgeInsets.all(8),
                         child: GestureDetector(
-                          child: Card(
-                            color: Color(0xffa1d9f4),
-                            elevation: 10,
+                          child: Container(
+                            padding: EdgeInsets.fromLTRB(20,10,0,15),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(23),
+                              gradient: const LinearGradient(
+                                colors: [
+                                Color(0xff055A92),
+                                  Color(0xff0899F8),
+                                ],
+                                begin: FractionalOffset(0.0, 0.0),
+                                end: FractionalOffset(0.0, 1.0)
+                              )
+                            ),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const SizedBox(height: 6),
                                 const Text(
-                                  'Alert Warnings',
+                                  'Evacuation Centers',
                                   style: TextStyle(
                                       letterSpacing: 0.5,
                                       fontSize: 22,
@@ -498,9 +612,18 @@ class _DashboardPageState extends State<DashboardPage> {
                                         ),
                                       ],
                                       color: Colors.white),
-                                  textAlign: TextAlign.center,
+                                  textAlign: TextAlign.start,
                                 ),
-                                Image.asset('assets/alert.png', height: 130.2),
+                                Spacer(),
+                                const Text("View",
+                                style: TextStyle(
+                                      letterSpacing: 0.5,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'SfPro',
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: Colors.white,
+                                      color: Colors.white),textAlign: TextAlign.left,)
                               ],
                             ),
                           ),
@@ -522,123 +645,124 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                       ),
 
-                      // ---- Send Message ----
-                      Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Card(
-                          color: Color(0xffa1d9f4),
-                          elevation: 10,
-                          child: Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  'Send Message',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    fontFamily: 'SfPro',
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextField(
-                                  controller: _textController,
-                                  decoration: InputDecoration(
-                                    hintText: 'Enter message',
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    fillColor: Colors.white,
-                                    filled: true,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                ElevatedButton(
-                                  onPressed: _sendPostRequest,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xff32ade6),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 20, vertical: 10),
-                                  ),
-                                  child: const Text('Send',
-                                      style: TextStyle(color: Colors.white)),
-                                ),
-                                if (_responseMessage.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 6),
-                                    child: Text(
-                                      _responseMessage,
-                                      style: TextStyle(
-                                        color: _responseMessage
-                                                .contains('successfully')
-                                            ? Colors.green
-                                            : Colors.red,
-                                        fontSize: 12,
-                                        fontFamily: 'SfPro',
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                      // // ---- Send Message ----
+                      // Padding(
+                      //   padding: EdgeInsets.all(8),
+                      //   child: Card(
+                      //     color: Color(0xffa1d9f4),
+                      //     elevation: 10,
+                      //     child: Padding(
+                      //       padding: const EdgeInsets.all(10),
+                      //       child: Column(
+                      //         mainAxisAlignment: MainAxisAlignment.center,
+                      //         children: [
+                      //           const Text(
+                      //             'Send Message',
+                      //             style: TextStyle(
+                      //               fontSize: 20,
+                      //               fontWeight: FontWeight.bold,
+                      //               color: Colors.white,
+                      //               fontFamily: 'SfPro',
+                      //             ),
+                      //           ),
+                      //           const SizedBox(height: 8),
+                      //           TextField(
+                      //             controller: _textController,
+                      //             decoration: InputDecoration(
+                      //               hintText: 'Enter message',
+                      //               contentPadding: const EdgeInsets.symmetric(
+                      //                   horizontal: 8, vertical: 4),
+                      //               border: OutlineInputBorder(
+                      //                 borderRadius: BorderRadius.circular(8),
+                      //               ),
+                      //               fillColor: Colors.white,
+                      //               filled: true,
+                      //             ),
+                      //           ),
+                      //           const SizedBox(height: 8),
+                      //           ElevatedButton(
+                      //             onPressed: _sendPostRequest,
+                      //             style: ElevatedButton.styleFrom(
+                      //               backgroundColor: const Color(0xff32ade6),
+                      //               padding: const EdgeInsets.symmetric(
+                      //                   horizontal: 20, vertical: 10),
+                      //             ),
+                      //             child: const Text('Send',
+                      //                 style: TextStyle(color: Colors.white)),
+                      //           ),
+                      //           if (_responseMessage.isNotEmpty)
+                      //             Padding(
+                      //               padding: const EdgeInsets.only(top: 6),
+                      //               child: Text(
+                      //                 _responseMessage,
+                      //                 style: TextStyle(
+                      //                   color: _responseMessage
+                      //                           .contains('successfully')
+                      //                       ? Colors.green
+                      //                       : Colors.red,
+                      //                   fontSize: 12,
+                      //                   fontFamily: 'SfPro',
+                      //                 ),
+                      //                 textAlign: TextAlign.center,
+                      //               ),
+                      //             ),
+                      //         ],
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
 
-                      // ---- Received Message ----
-                      Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Card(
-                          color: Color(0xffa1d9f4),
-                          elevation: 10,
-                          child: Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  'Received Message',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    fontFamily: 'SfPro',
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _responseMessage.isEmpty
-                                      ? 'No message received yet.'
-                                      : _responseMessage,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontFamily: 'SfPro',
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                ElevatedButton.icon(
-                                  onPressed: _fetchReceivedMessage,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xff32ade6),
-                                  ),
-                                  icon: const Icon(Icons.refresh,
-                                      color: Colors.white),
-                                  label: const Text(
-                                    'Refresh',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                      // // ---- Received Message ----
+                      // Padding(
+                      //   padding: EdgeInsets.all(8),
+                      //   child: Card(
+                      //     color: Color(0xffa1d9f4),
+                      //     elevation: 10,
+                      //     child: Padding(
+                      //       padding: const EdgeInsets.all(10),
+                      //       child: Column(
+                      //         mainAxisAlignment: MainAxisAlignment.center,
+                      //         children: [
+                      //           const Text(
+                      //             'Received Message',
+                      //             style: TextStyle(
+                      //               fontSize: 20,
+                      //               fontWeight: FontWeight.bold,
+                      //               color: Colors.white,
+                      //               fontFamily: 'SfPro',
+                      //             ),
+                      //           ),
+                      //           const SizedBox(height: 8),
+                      //           Text(
+                      //             _responseMessage.isEmpty
+                      //                 ? 'No message received yet.'
+                      //                 : _responseMessage,
+                      //             textAlign: TextAlign.center,
+                      //             style: const TextStyle(
+                      //               color: Colors.white,
+                      //               fontSize: 10,
+                      //               fontFamily: 'SfPro',
+                      //             ),
+                      //           ),
+                                
+                      //           const SizedBox(height: 10),
+                      //           ElevatedButton.icon(
+                      //             onPressed: _fetchReceivedMessage,
+                      //             style: ElevatedButton.styleFrom(
+                      //               backgroundColor: const Color(0xff32ade6),
+                      //             ),
+                      //             icon: const Icon(Icons.refresh,
+                      //                 color: Colors.white),
+                      //             label: const Text(
+                      //               'Refresh',
+                      //               style: TextStyle(color: Colors.white),
+                      //             ),
+                      //           ),
+                      //         ],
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),
@@ -657,17 +781,27 @@ class _DashboardPageState extends State<DashboardPage> {
               onPressed: () {
                 Navigator.pushNamed(context, 'sos');
               },
-              backgroundColor: const Color.fromARGB(255, 239, 66, 63),
+              backgroundColor: const Color(0xffff0000),
               shape: const CircleBorder(),
-              child: const Text(
+              child: Container(
+                alignment: Alignment.center,
+                child: const Text(
                 'SOS',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 25,
+                    fontSize: 23,
                     fontFamily: 'SfPro',
                     color: Colors.white,
                     letterSpacing: 3),
               ),
+              
+              height: 77,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xffB70000)
+              ),
+              )
             ),
           ),
         ),

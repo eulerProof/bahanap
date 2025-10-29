@@ -1,0 +1,2 @@
+C:/Users/joshu/OneDrive/Desktop/Bahanap/android/app/.cxx/Debug/d5so3x2f/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/joshu/OneDrive/Desktop/Bahanap/android/app/.cxx/Debug/d5so3x2f/arm64-v8a/CMakeFiles/rebuild_cache.dir

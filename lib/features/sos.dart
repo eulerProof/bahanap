@@ -1,9 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:cc206_bahanap/features/user_service.dart';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:network_info_plus/network_info_plus.dart';
+
 
 class SosPage extends StatefulWidget {
   const SosPage({super.key});
@@ -14,29 +19,40 @@ class SosPage extends StatefulWidget {
 
 class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  Timer? _timer;
   late Animation<double> _opacity;
   StreamSubscription<Position>? _positionStreamSubscription;
-
+  String _status = "";
+  String _username = "";
+  String _coordinates = "";
   @override
   void initState() {
     super.initState();
-
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
     )..repeat(reverse: true);
     _opacity = Tween<double>(begin: 0.2, end: 1.0).animate(_controller);
-
-    _startLocationUpdates();
+    _initializeSOS();
   }
 
   @override
   void dispose() {
     _controller.dispose();
     _positionStreamSubscription?.cancel();
+    _timer?.cancel();
     super.dispose();
   }
-
+  
+  Future<void> _getUsername() async {
+    setState(() {
+      _username = UserService().username!;
+    });
+  }
+  Future<void> _initializeSOS() async {
+    await _getUsername();
+    _startLocationUpdates();
+  }
   Future<bool> requestLocationPermission() async {
     LocationPermission permission = await Geolocator.requestPermission();
     if (permission == LocationPermission.denied ||
@@ -46,7 +62,10 @@ class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
     }
     return true;
   }
-
+  // void _startSendingLocation() {
+  //   _startLocationUpdates(); // Fetch once immediately
+  //   _timer = Timer.periodic(const Duration(seconds: 5), (_) => _startLocationUpdates());
+  // }
   Future<String> _getDeviceId() async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
     String deviceId;
@@ -66,26 +85,32 @@ class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
     bool hasPermission = await requestLocationPermission();
 
     if (hasPermission) {
-      StreamSubscription<Position>? positionStreamSubscription;
+      await _positionStreamSubscription?.cancel();
 
-      positionStreamSubscription = Geolocator.getPositionStream(
+      _positionStreamSubscription = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
           distanceFilter: 10,
         ),
       ).listen((Position position) async {
         try {
+          setState(() {
+            _coordinates = "${position.latitude}, ${position.longitude}";
+          });
           String deviceId = await _getDeviceId();
-
+          
           String? uid = FirebaseAuth.instance.currentUser?.uid;
-
+          
+          //Disabling Firestore for now to focus on module testing
           if (uid == null) {
             print("User  is not logged in. Sending to 'rescuees'.");
-            await _sendCoordinatesToFirestore(deviceId, position, "rescuees");
+            // await _sendCoordinatesToFirestore(deviceId, position, "rescuees");
+            _sendPostRequest(position, _username);
           } else {
             print(
                 "User  is logged in. Sending to 'profiles' collection. UID: $uid");
-            await _sendCoordinatesToFirestore(uid, position, "profiles");
+            // await _sendCoordinatesToFirestore(uid, position, "profiles");
+            _sendPostRequest(position, _username);
           }
         } catch (e) {
           print("Error sending coordinates: $e");
@@ -112,6 +137,64 @@ class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
       print("Location sent to Firestore with docId: $docId");
     } catch (e) {
       print("Error updating location in Firestore: $e");
+    }
+  }
+
+  Future<void> _sendPostRequest(Position position, String id) async {
+    try {
+      final wifiName = await NetworkInfo().getWifiName();
+
+      if (wifiName == null) {
+        setState(() {
+          _status = "Not connected to any WiFi network.";
+        });
+        return;
+      }
+
+      String? esp32IP;
+      if (wifiName.contains("Bahanap_Node_A")) {
+        esp32IP = "192.168.4.1";
+      } else if (wifiName.contains("Bahanap_Node_B")) {
+        esp32IP = "192.168.4.2";
+      } else {
+        setState(() {
+          _status = "Not connected to a valid ESP32 node WiFi.";
+        });
+        return;
+      }
+      // Build JSON payload
+    final payload = {
+      "latitude": position.latitude,
+      "longitude": position.longitude,
+      "timestamp": DateTime.now().toUtc().toIso8601String(),
+      "uid": id
+    };
+
+    // Send JSON to ESP32
+    final response = await http
+        .post(
+          Uri.parse('http://$esp32IP/message'),
+          headers: {
+            'Content-Type': 'application/json; charset=UTF-8',
+          },
+          body: jsonEncode(payload),
+        )
+        .timeout(const Duration(seconds: 3)); // Add timeout for safety
+    
+    // Update UI status
+    setState(() {
+      if (response.statusCode == 200) {
+        _status = '✅ Message sent successfully!';
+          
+        
+      } else {
+        _status = '❌ Failed to send. Status: ${response.statusCode}';
+      }
+    });
+    } catch (e) {
+      setState(() {
+        _status = 'Error: $e';
+      });
     }
   }
 
@@ -143,9 +226,26 @@ class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
                 builder: (context, child) {
                   return Opacity(
                     opacity: _opacity.value,
-                    child: const Text(
-                      'CONNECTING',
-                      style: TextStyle(
+                    child: Text(
+                      "Username: $_username",
+                      style: const TextStyle(
+                        color: Color(0xff32ade6),
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Gilroy',
+                      ),
+                    ),
+                  );
+                },
+              ),
+              AnimatedBuilder(
+                animation: _opacity,
+                builder: (context, child) {
+                  return Opacity(
+                    opacity: _opacity.value,
+                    child: Text(
+                      "Coordinates: $_coordinates",
+                      style: const TextStyle(
                         color: Color(0xff32ade6),
                         fontSize: 13,
                         fontWeight: FontWeight.bold,

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:cc206_bahanap/features/image_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +11,8 @@ import 'package:geocoding/geocoding.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:network_info_plus/network_info_plus.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -26,12 +30,15 @@ class _MapPageState extends State<MapPage> {
   final List<Marker> _markers = [];
   StreamSubscription<Position>? _positionStreamSubscription;
   String userName = " ";
-
+  String _username = '';
+  double _latitude = 0;
+  double _longitude = 0;
+  String _responseMessage = '';
   @override
   void initState() {
     super.initState();
     DeviceOrientation.portraitUp;
-
+  _fetchLocationFromModule();
     _fetchUserName();
     _initializeMarkers();
     _startLocationUpdates();
@@ -68,7 +75,101 @@ class _MapPageState extends State<MapPage> {
       }
     }
   }
+  Future<void> _fetchLocationFromModule() async {
+  try {
+    final wifiName = await NetworkInfo().getWifiName();
 
+      if (wifiName == null) {
+        setState(() {
+          _responseMessage = "Not connected to any WiFi network.";
+        });
+        return;
+      }
+
+      String? esp32IP;
+      if (wifiName.contains("Bahanap_Node_A")) {
+        esp32IP = "192.168.4.1";
+      } else if (wifiName.contains("Bahanap_Node_B")) {
+        esp32IP = "192.168.4.2";
+      } else {
+        setState(() {
+          _responseMessage = "Not connected to a valid ESP32 node WiFi.";
+        });
+        return;
+      }
+    final response = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body); // Parse JSON
+
+      setState(() {
+        // Assign extracted fields to variables
+        _username = data["id"] ?? "Unknown";
+        _latitude = data["lat"]?.toDouble() ?? 0.0;
+        _longitude = data["lon"]?.toDouble() ?? 0.0;
+
+      });
+    } else {
+      setState(() {
+        _responseMessage =
+            'Failed to receive message. Status: ${response.statusCode}';
+      });
+    }
+  } catch (e) {
+    setState(() {
+      _responseMessage = 'Error: $e';
+    });
+  }
+}
+
+  void _initializeLorawanMarker() async {
+    try {
+      _markers.add(
+              Marker(
+                width: 100.0,
+                height: 100.0,
+                point: LatLng(_latitude, _longitude),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.red,
+                          width: 3.0,
+                        ),
+                      ),
+                      child: CircleAvatar(
+                        radius: 15,
+                        backgroundImage:
+                            const AssetImage('assets/images/dgfdfdsdsf2.jpg'),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _username,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12.0,
+                        fontFamily: 'SfPro',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+        );
+      
+      setState(() {});
+    }
+    catch (e){
+      _responseMessage = "Error initializing markers: $e";
+    }
+  }
+  void _refresh () async {
+    await _fetchLocationFromModule();
+    _initializeLorawanMarker();
+  }
   Future<void> _fetchCurrentLocation() async {
     try {
       Position position = await Geolocator.getCurrentPosition(
@@ -450,6 +551,28 @@ class _MapPageState extends State<MapPage> {
                       ),
                     ),
                   ),
+                  GestureDetector(
+                    onTap: () {
+                      _refresh();
+                    },
+                    child: Container(
+                      height: 35,
+                      width: 35,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.black,
+                          width: 0.5,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.refresh,
+                        size: 30,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -464,17 +587,27 @@ class _MapPageState extends State<MapPage> {
             onPressed: () {
               Navigator.pushNamed(context, 'sos');
             },
-            backgroundColor: const Color.fromARGB(255, 239, 66, 63),
+            backgroundColor: const Color(0xffff0000),
             shape: const CircleBorder(),
-            child: const Text(
-              'SOS',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 25,
-                  fontFamily: 'SfPro',
-                  color: Colors.white,
-                  letterSpacing: 3),
-            ),
+            child: Container(
+                alignment: Alignment.center,
+                child: const Text(
+                'SOS',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 23,
+                    fontFamily: 'SfPro',
+                    color: Colors.white,
+                    letterSpacing: 3),
+              ),
+              
+              height: 77,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xffB70000)
+              ),
+              )
           ),
         ),
         bottomNavigationBar: BottomAppBar(

@@ -38,10 +38,12 @@ class _MapPageState extends State<MapPage> {
   void initState() {
     super.initState();
     DeviceOrientation.portraitUp;
+    _refresh();
   _fetchLocationFromModule();
     _fetchUserName();
-    _initializeMarkers();
-    _startLocationUpdates();
+    // _initializeMarkers();
+    _initializeLorawanMarker();
+    // _startLocationUpdates();
   }
 
   @override
@@ -102,13 +104,15 @@ class _MapPageState extends State<MapPage> {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body); // Parse JSON
 
-      setState(() {
-        // Assign extracted fields to variables
-        _username = data["id"] ?? "Unknown";
-        _latitude = data["lat"]?.toDouble() ?? 0.0;
-        _longitude = data["lon"]?.toDouble() ?? 0.0;
+      if (data["id"]?.toString() ==  userName) {
+        setState(() {
+          // Assign extracted fields to variables
+          _username = data["id"] ?? "Unknown";
+          _latitude = data["lat"]?.toDouble() ?? 0.0;
+          _longitude = data["lon"]?.toDouble() ?? 0.0;
 
-      });
+        });
+      }
     } else {
       setState(() {
         _responseMessage =
@@ -186,73 +190,73 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  void _initializeMarkers() async {
-    _markers.clear();
+  // void _initializeMarkers() async {
+  //   _markers.clear();
 
-    final String currentUserUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  //   final String currentUserUid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-    try {
-      QuerySnapshot querySnapshot =
-          await FirebaseFirestore.instance.collection('profiles').get();
+  //   try {
+  //     QuerySnapshot querySnapshot =
+  //         await FirebaseFirestore.instance.collection('profiles').get();
 
-      for (var doc in querySnapshot.docs) {
-        String coordinates = doc['Coordinates'] ?? "0.0, 0.0";
-        String fullName = doc['Name'] ?? "User";
-        String uid = doc.id;
+  //     for (var doc in querySnapshot.docs) {
+  //       String coordinates = doc['Coordinates'] ?? "0.0, 0.0";
+  //       String fullName = doc['Name'] ?? "User";
+  //       String uid = doc.id;
 
-        if (uid == currentUserUid) {
-          continue;
-        }
+  //       if (uid == currentUserUid) {
+  //         continue;
+  //       }
 
-        String imagePath = 'assets/images/dgfdfdsdsf2.jpg';
+  //       String imagePath = 'assets/images/dgfdfdsdsf2.jpg';
 
-        List<String> latLng = coordinates.split(',');
-        double latitude = double.tryParse(latLng[0].trim()) ?? 0.0;
-        double longitude = double.tryParse(latLng[1].trim()) ?? 0.0;
+  //       List<String> latLng = coordinates.split(',');
+  //       double latitude = double.tryParse(latLng[0].trim()) ?? 0.0;
+  //       double longitude = double.tryParse(latLng[1].trim()) ?? 0.0;
 
-        String userName = fullName.split(' ').first;
+  //       String userName = fullName.split(' ').first;
 
-        _markers.add(
-          Marker(
-            width: 100.0,
-            height: 100.0,
-            point: LatLng(latitude, longitude),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.green,
-                      width: 3.0,
-                    ),
-                  ),
-                  child: CircleAvatar(
-                    radius: 15,
-                    backgroundImage: AssetImage(imagePath),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  userName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12.0,
-                    fontFamily: 'SfPro',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
+  //       _markers.add(
+  //         Marker(
+  //           width: 100.0,
+  //           height: 100.0,
+  //           point: LatLng(latitude, longitude),
+  //           child: Column(
+  //             mainAxisSize: MainAxisSize.min,
+  //             children: [
+  //               Container(
+  //                 decoration: BoxDecoration(
+  //                   shape: BoxShape.circle,
+  //                   border: Border.all(
+  //                     color: Colors.green,
+  //                     width: 3.0,
+  //                   ),
+  //                 ),
+  //                 child: CircleAvatar(
+  //                   radius: 15,
+  //                   backgroundImage: AssetImage(imagePath),
+  //                 ),
+  //               ),
+  //               const SizedBox(height: 4),
+  //               Text(
+  //                 userName,
+  //                 style: const TextStyle(
+  //                   fontWeight: FontWeight.bold,
+  //                   fontSize: 12.0,
+  //                   fontFamily: 'SfPro',
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       );
+  //     }
 
-      setState(() {});
-    } catch (e) {
-      print("Error initializing markers: $e");
-    }
-  }
+  //     setState(() {});
+  //   } catch (e) {
+  //     print("Error initializing markers: $e");
+  //   }
+  // }
 
   Future<void> uploadLocation(LatLng loc) async {
     final String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -302,21 +306,21 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  void _startLocationUpdates() {
-    _positionStreamSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 1,
-      ),
-    ).listen((Position position) {
-      LatLng newLocation = LatLng(position.latitude, position.longitude);
-      setState(() {
-        userLocation = newLocation;
-        _updateUserMarker(newLocation);
-        uploadLocation(newLocation);
-      });
-    });
-  }
+  // void _startLocationUpdates() {
+  //   _positionStreamSubscription = Geolocator.getPositionStream(
+  //     locationSettings: const LocationSettings(
+  //       accuracy: LocationAccuracy.high,
+  //       distanceFilter: 1,
+  //     ),
+  //   ).listen((Position position) {
+  //     LatLng newLocation = LatLng(position.latitude, position.longitude);
+  //     setState(() {
+  //       userLocation = newLocation;
+  //       _updateUserMarker(newLocation);
+  //       uploadLocation(newLocation);
+  //     });
+  //   });
+  // }
 
   void _updateUserMarker(LatLng location) {
     if (_userMarker != null) {

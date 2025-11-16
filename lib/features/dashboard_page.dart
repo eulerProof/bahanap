@@ -26,8 +26,52 @@ class _DashboardPageState extends State<DashboardPage> {
   String currentAddress = "Fetching address...";
   final TextEditingController _textController = TextEditingController();
   String _responseMessage = '';
+  String _responseMessage2 = '';
   String _coordinates = '';
-  
+   String userName = "";
+   List<String> preDisaster = [];
+  List<String> duringDisaster = [];
+  List<String> postDisaster = [];
+
+  Future<void> fetchGuidelines() async {
+    try {
+      final wifiName = await NetworkInfo().getWifiName();
+
+      if (wifiName == null) {
+        setState(() {
+          _responseMessage = "Not connected to any WiFi network.";
+        });
+        return;
+      }
+
+      String? esp32IP;
+      if (wifiName.contains("Bahanap_Node_A")) {
+        esp32IP = "192.168.4.1";
+      } else if (wifiName.contains("Bahanap_Node_B")) {
+        esp32IP = "192.168.4.2";
+      } else {
+        setState(() {
+          _responseMessage = "Not connected to a valid ESP32 node WiFi.";
+        });
+        return;
+      }
+      final response = await http.get(Uri.parse('http://$esp32IP/guidelines'));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        setState(() {
+          preDisaster = List<String>.from(data["preDisaster"] ?? []);
+          duringDisaster = List<String>.from(data["duringDisaster"] ?? []);
+          postDisaster = List<String>.from(data["postDisaster"] ?? []);
+        });
+      } else {
+        print("Failed to fetch guidelines: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error fetching guidelines: $e");
+    }
+  }
   @override
   void dispose() {
     _textController.dispose();
@@ -41,6 +85,104 @@ class _DashboardPageState extends State<DashboardPage> {
     super.initState();
     _initializeUser();
     _fetchLocation();
+    _fetchUserName();
+    fetchGuidelines();
+  }
+  Widget buildCategorySection(String title, List<String> items) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: const Color.fromARGB(255, 4, 87, 142),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 10),
+            if (items.isEmpty)
+              const Text(
+                "No guidelines added yet.",
+                style: TextStyle(color: Colors.grey),
+              )
+            else
+              ...items.map((item) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text("• $item",
+                        style: const TextStyle(fontSize: 16, color:  Colors.white)),
+                  )),
+          ],
+        ),
+      ),
+    );
+  }
+  void _showGuidelines() {
+    fetchGuidelines();
+      showGeneralDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'FullScreenDialog',
+        barrierColor: Colors.black54, // dim background
+        pageBuilder: (context, animation1, animation2) {
+          return Scaffold(
+      body: Container(
+        padding: const EdgeInsets.all(16),
+        color: const Color(0xff002F4E),
+        child: ListView(
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Disaster Preparedness Guidelines',
+              style: TextStyle(
+                
+                fontSize: 30,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'SfPro',
+              color: Colors.white),
+              textAlign: TextAlign.start,
+            ),
+            const SizedBox(height: 20),
+            buildCategorySection("Pre-Disaster Guidelines", preDisaster),
+            const SizedBox(height: 20),
+            buildCategorySection("During Disaster Guidelines", duringDisaster),
+            const SizedBox(height: 20),
+            buildCategorySection("Post-Disaster Guidelines", postDisaster),
+          ],
+        ),
+      ),
+    );
+  }
+      );
+  }
+   Future<void> _fetchUserName() async {
+    final String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isNotEmpty) {
+      try {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection("profiles")
+            .doc(uid)
+            .get();
+        if (userDoc.exists) {
+          setState(() {
+            String fullName = userDoc['Name'] ?? "You ";
+            userName = fullName.split(' ').first;
+          });
+        }
+      } catch (e) {
+        print("Error fetching user name: $e");
+      }
+    }
   }
 Future<void> _initializeUser() async {
     await UserService().fetchUsername();
@@ -201,7 +343,13 @@ Future<void> _initializeUser() async {
           
           if (data is Map) {
             // Safely extract both fields
-            _responseMessage = data["text"]?.toString() ?? "No text found";
+            _responseMessage = data["id"]?.toString() ?? "No text found";
+
+            if (data["id"]?.toString() == userName) {
+              _responseMessage2 = "You are the rescuer.";
+            } else {
+              _responseMessage2 = "You are NOT the rescuer";
+            }
             // _coordinates = data['coordinates']?.toString() ?? "No coordinates";
           } else {
             _responseMessage = "Invalid JSON format";
@@ -558,19 +706,8 @@ Future<void> _initializeUser() async {
                             ),
                           ),
                           onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text("Evacuation"),
-                                content: Text(
-                                    "This is where the evacuation info would be."),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: Text("Ok"))
-                                ],
-                              ),
-                            );
+                            
+                            _showGuidelines();
                           },
                         ),
                       ),
@@ -712,57 +849,67 @@ Future<void> _initializeUser() async {
                       //   ),
                       // ),
 
-                      // // ---- Received Message ----
-                      // Padding(
-                      //   padding: EdgeInsets.all(8),
-                      //   child: Card(
-                      //     color: Color(0xffa1d9f4),
-                      //     elevation: 10,
-                      //     child: Padding(
-                      //       padding: const EdgeInsets.all(10),
-                      //       child: Column(
-                      //         mainAxisAlignment: MainAxisAlignment.center,
-                      //         children: [
-                      //           const Text(
-                      //             'Received Message',
-                      //             style: TextStyle(
-                      //               fontSize: 20,
-                      //               fontWeight: FontWeight.bold,
-                      //               color: Colors.white,
-                      //               fontFamily: 'SfPro',
-                      //             ),
-                      //           ),
-                      //           const SizedBox(height: 8),
-                      //           Text(
-                      //             _responseMessage.isEmpty
-                      //                 ? 'No message received yet.'
-                      //                 : _responseMessage,
-                      //             textAlign: TextAlign.center,
-                      //             style: const TextStyle(
-                      //               color: Colors.white,
-                      //               fontSize: 10,
-                      //               fontFamily: 'SfPro',
-                      //             ),
-                      //           ),
-                                
-                      //           const SizedBox(height: 10),
-                      //           ElevatedButton.icon(
-                      //             onPressed: _fetchReceivedMessage,
-                      //             style: ElevatedButton.styleFrom(
-                      //               backgroundColor: const Color(0xff32ade6),
-                      //             ),
-                      //             icon: const Icon(Icons.refresh,
-                      //                 color: Colors.white),
-                      //             label: const Text(
-                      //               'Refresh',
-                      //               style: TextStyle(color: Colors.white),
-                      //             ),
-                      //           ),
-                      //         ],
-                      //       ),
-                      //     ),
-                      //   ),
-                      // ),
+                      // ---- Received Message ----
+                      Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Card(
+                          color: Color(0xffa1d9f4),
+                          elevation: 10,
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'Received Message',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    fontFamily: 'SfPro',
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _responseMessage.isEmpty
+                                      ? 'No message received yet.'
+                                      : _responseMessage,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontFamily: 'SfPro',
+                                  ),
+                                ),
+                                Text(
+                                  _responseMessage2.isEmpty
+                                      ? 'No message received yet.'
+                                      : _responseMessage2,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 10,
+                                    fontFamily: 'SfPro',
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                ElevatedButton.icon(
+                                  onPressed: _fetchReceivedMessage,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xff32ade6),
+                                  ),
+                                  icon: const Icon(Icons.refresh,
+                                      color: Colors.white),
+                                  label: const Text(
+                                    'Refresh',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

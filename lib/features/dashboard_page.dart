@@ -33,48 +33,11 @@ class _DashboardPageState extends State<DashboardPage> {
   List<String> duringDisaster = [];
   List<String> postDisaster = [];
 
-  Future<void> fetchGuidelines() async {
-    try {
-      final wifiName = await NetworkInfo().getWifiName();
-
-      if (wifiName == null) {
-        setState(() {
-          _responseMessage = "Not connected to any WiFi network.";
-        });
-        return;
-      }
-
-      String? esp32IP;
-      if (wifiName.contains("Bahanap_Node_A")) {
-        esp32IP = "192.168.4.1";
-      } else if (wifiName.contains("Bahanap_Node_B")) {
-        esp32IP = "192.168.4.2";
-      } else {
-        setState(() {
-          _responseMessage = "Not connected to a valid ESP32 node WiFi.";
-        });
-        return;
-      }
-      final response = await http.get(Uri.parse('http://$esp32IP/guidelines'));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
-        setState(() {
-          preDisaster = List<String>.from(data["preDisaster"] ?? []);
-          duringDisaster = List<String>.from(data["duringDisaster"] ?? []);
-          postDisaster = List<String>.from(data["postDisaster"] ?? []);
-        });
-      } else {
-        print("Failed to fetch guidelines: ${response.statusCode}");
-      }
-    } catch (e) {
-      print("Error fetching guidelines: $e");
-    }
-  }
+  
   @override
   void dispose() {
     _textController.dispose();
+
     super.dispose();
   }
 
@@ -118,8 +81,47 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
-  void _showGuidelines() {
-    fetchGuidelines();
+  Future<void> fetchGuidelines() async {
+    try {
+      final wifiName = await NetworkInfo().getWifiName();
+
+      if (wifiName == null) {
+        setState(() {
+          _responseMessage = "Not connected to any WiFi network.";
+        });
+        return;
+      }
+
+      String? esp32IP;
+      if (wifiName.contains("Bahanap_Node_A")) {
+        esp32IP = "192.168.4.1";
+      } else if (wifiName.contains("Bahanap_Node_B")) {
+        esp32IP = "192.168.4.2";
+      } else {
+        setState(() {
+          _responseMessage = "Not connected to a valid ESP32 node WiFi.";
+        });
+        return;
+      }
+      final response = await http.get(Uri.parse('http://$esp32IP/guidelines'));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        setState(() {
+          preDisaster = List<String>.from(data["preDisaster"] ?? ["None, error"]);
+          duringDisaster = List<String>.from(data["duringDisaster"] ?? ["None"]);
+          postDisaster = List<String>.from(data["postDisaster"] ?? ["None"]);
+        });
+      } else {
+        print("Failed to fetch guidelines: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error fetching guidelines: $e");
+    }
+  }
+  void _showGuidelines() async {
+      await fetchGuidelines();
       showGeneralDialog(
         context: context,
         barrierDismissible: true,

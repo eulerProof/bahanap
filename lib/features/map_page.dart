@@ -13,6 +13,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:network_info_plus/network_info_plus.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -24,6 +25,9 @@ class MapPage extends StatefulWidget {
 class _MapPageState extends State<MapPage> {
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
+  final _tileProvider = FMTCTileProvider(
+    stores: const {'mapStore': BrowseStoreStrategy.readUpdateCreate},
+  );
 
   LatLng? userLocation;
   Marker? _userMarker;
@@ -39,7 +43,7 @@ class _MapPageState extends State<MapPage> {
     super.initState();
     DeviceOrientation.portraitUp;
     _refresh();
-  _fetchLocationFromModule();
+    _fetchLocationFromModule();
     _fetchUserName();
     // _initializeMarkers();
     _initializeLorawanMarker();
@@ -77,9 +81,10 @@ class _MapPageState extends State<MapPage> {
       }
     }
   }
+
   Future<void> _fetchLocationFromModule() async {
-  try {
-    final wifiName = await NetworkInfo().getWifiName();
+    try {
+      final wifiName = await NetworkInfo().getWifiName();
 
       if (wifiName == null) {
         setState(() {
@@ -99,81 +104,81 @@ class _MapPageState extends State<MapPage> {
         });
         return;
       }
-    final response = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
+      final response = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body); // Parse JSON
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body); // Parse JSON
 
-      if (data["id"]?.toString() ==  userName) {
+        if (data["id"]?.toString() == userName) {
+          setState(() {
+            // Assign extracted fields to variables
+            _username = data["id"] ?? "Unknown";
+            _latitude = data["lat"]?.toDouble() ?? 0.0;
+            _longitude = data["lon"]?.toDouble() ?? 0.0;
+          });
+        }
+      } else {
         setState(() {
-          // Assign extracted fields to variables
-          _username = data["id"] ?? "Unknown";
-          _latitude = data["lat"]?.toDouble() ?? 0.0;
-          _longitude = data["lon"]?.toDouble() ?? 0.0;
-
+          _responseMessage =
+              'Failed to receive message. Status: ${response.statusCode}';
         });
       }
-    } else {
+    } catch (e) {
       setState(() {
-        _responseMessage =
-            'Failed to receive message. Status: ${response.statusCode}';
+        _responseMessage = 'Error: $e';
       });
     }
-  } catch (e) {
-    setState(() {
-      _responseMessage = 'Error: $e';
-    });
   }
-}
 
   void _initializeLorawanMarker() async {
     try {
       _markers.add(
-              Marker(
-                width: 100.0,
-                height: 100.0,
-                point: LatLng(_latitude, _longitude),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.red,
-                          width: 3.0,
-                        ),
-                      ),
-                      child: CircleAvatar(
-                        radius: 15,
-                        backgroundImage:
-                            const AssetImage('assets/images/dgfdfdsdsf2.jpg'),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _username,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12.0,
-                        fontFamily: 'SfPro',
-                      ),
-                    ),
-                  ],
+        Marker(
+          width: 100.0,
+          height: 100.0,
+          point: LatLng(_latitude, _longitude),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.red,
+                    width: 3.0,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 15,
+                  backgroundImage:
+                      const AssetImage('assets/images/dgfdfdsdsf2.jpg'),
                 ),
               ),
-        );
-      
+              const SizedBox(height: 4),
+              Text(
+                _username,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12.0,
+                  fontFamily: 'SfPro',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
       setState(() {});
-    }
-    catch (e){
+    } catch (e) {
       _responseMessage = "Error initializing markers: $e";
     }
   }
-  void _refresh () async {
+
+  void _refresh() async {
     await _fetchLocationFromModule();
     _initializeLorawanMarker();
   }
+
   Future<void> _fetchCurrentLocation() async {
     try {
       Position position = await Geolocator.getCurrentPosition(
@@ -425,8 +430,15 @@ class _MapPageState extends State<MapPage> {
               children: [
                 TileLayer(
                   urlTemplate:
-                      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                  subdomains: ['a', 'b', 'c'],
+                      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  subdomains: const ['a', 'b', 'c'],
+
+                  // 🚀 Enable FMTC tile caching
+                  tileProvider: _tileProvider,
+
+                  // Optional but recommended for smoother caching
+                  maxZoom: 19,
+                  minZoom: 1,
                 ),
                 MarkerLayer(markers: _markers),
               ],
@@ -588,31 +600,27 @@ class _MapPageState extends State<MapPage> {
           height: 90,
           width: 90,
           child: FloatingActionButton(
-            onPressed: () {
-              Navigator.pushNamed(context, 'sos');
-            },
-            backgroundColor: const Color(0xffff0000),
-            shape: const CircleBorder(),
-            child: Container(
+              onPressed: () {
+                Navigator.pushNamed(context, 'sos');
+              },
+              backgroundColor: const Color(0xffff0000),
+              shape: const CircleBorder(),
+              child: Container(
                 alignment: Alignment.center,
                 child: const Text(
-                'SOS',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 23,
-                    fontFamily: 'SfPro',
-                    color: Colors.white,
-                    letterSpacing: 3),
-              ),
-              
-              height: 77,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xffB70000)
-              ),
-              )
-          ),
+                  'SOS',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 23,
+                      fontFamily: 'SfPro',
+                      color: Colors.white,
+                      letterSpacing: 3),
+                ),
+                height: 77,
+                decoration: BoxDecoration(
+                    shape: BoxShape.circle, color: Color(0xffB70000)),
+              )),
         ),
         bottomNavigationBar: BottomAppBar(
           color: Color(0xff32ade6),

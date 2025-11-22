@@ -434,12 +434,18 @@ class _MapPageState extends State<MapPage> {
               ),
               children: [
                 TileLayer(
-                  // Using OpenTopoMap as an alternative to avoid the OSM tile usage policy block.
-                  // Source: https://tile.opentopomap.org/
-                  urlTemplate: "https://tile.opentopomap.org/{z}/{x}/{y}.png",
-                  // OpenTopoMap does not use subdomains 'a', 'b', 'c', so we remove the subdomains property
+                  // Using CartoDB Positron as a highly available, OSM-based alternative.
+                  // This is generally more reliable for non-commercial use than the default OSM tiles.
+                  urlTemplate:
+                      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                  subdomains: const [
+                    'a',
+                    'b',
+                    'c',
+                    'd'
+                  ], // CartoDB uses subdomains
                   tileProvider: _tileProvider, // FMTC Caching is here
-                  maxZoom: 17, // Max zoom for OpenTopoMap
+                  maxZoom: 20, // CartoDB supports higher zoom
                   minZoom: 1,
                 ),
                 MarkerLayer(markers: _markers),

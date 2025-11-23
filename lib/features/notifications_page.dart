@@ -159,174 +159,174 @@ class NotificationsPageState extends State<NotificationsPage> {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(10),
-                child: GridView.builder(
-                shrinkWrap: true,
-                itemCount: assignedSOS.length,
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 550,
-                  mainAxisSpacing: 15,
-                  crossAxisSpacing: 15,
-                  mainAxisExtent: 150,
-                ),
-                itemBuilder: (context, i) {
-                  final item = assignedSOS[i];
-                  final lat = item['lat'] ?? "Unknown";
-                  final lon = item['lon'] ?? "Unknown";
-                  final id = item['id'] ?? "No Username";
+              // Padding(
+              //   padding: const EdgeInsets.all(10),
+              //   child: GridView.builder(
+              //   shrinkWrap: true,
+              //   itemCount: assignedSOS.length,
+              //   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              //     maxCrossAxisExtent: 550,
+              //     mainAxisSpacing: 15,
+              //     crossAxisSpacing: 15,
+              //     mainAxisExtent: 150,
+              //   ),
+              //   itemBuilder: (context, i) {
+              //     final item = assignedSOS[i];
+              //     final lat = item['lat'] ?? "Unknown";
+              //     final lon = item['lon'] ?? "Unknown";
+              //     final id = item['id'] ?? "No Username";
 
-                  return Container(
-                    color: Colors.grey,
-                    child: Column(
-                      children: [
-                        Text("Coordinates: $lat, $lon")
-                      ],
-                    ),
-                  ); // Your card widget
-                },
-                    )
-              ),
+              //     return Container(
+              //       color: Colors.grey,
+              //       child: Column(
+              //         children: [
+              //           Text("Coordinates: $lat, $lon")
+              //         ],
+              //       ),
+              //     ); // Your card widget
+              //   },
+              //       )
+              // ),
 
               
-              // Padding(
-              //   padding: const EdgeInsets.all(10),
-              //   child: SizedBox(
-              //       height: 240,
-              //       child: ListView.builder(
-              //         scrollDirection: Axis.horizontal,
-              //         itemCount: items.length,
-              //         itemBuilder: (context, index) {
-              //           final item = items[index];
-              //           return Container(
-              //             margin: const EdgeInsets.symmetric(
-              //                 horizontal: 10, vertical: 12),
-              //             child: SizedBox(
-              //               width: 300,
-              //               height: 700,
-              //               child: Center(
-              //                 child: Card(
-              //                   color: Color.fromARGB(255, 175, 220, 241),
-              //                   elevation: 10,
-              //                   child: Padding(
-              //                     padding: const EdgeInsets.all(13),
-              //                     child: Column(
-              //                       crossAxisAlignment:
-              //                           CrossAxisAlignment.start,
-              //                       children: [
-              //                         ClipRRect(
-              //                           borderRadius: BorderRadius.circular(15),
-              //                           child: Image.asset(
-              //                             'assets/pepito.png',
-              //                             fit: BoxFit.fitWidth,
-              //                             width: 400,
-              //                             height: 90,
-              //                           ),
-              //                         ),
-              //                         const Text(
-              //                           'Pepito rapidly intensifies into typhoon',
-              //                           style: TextStyle(
-              //                             fontFamily: 'SfPro',
-              //                             fontSize: 16,
-              //                             fontWeight: FontWeight.bold,
-              //                           ),
-              //                         ),
-              //                         const Text(
-              //                           'Typhoon Pepito (Man-yi) will continue to undergo rapid intensification until Saturday, November 16...',
-              //                           style: TextStyle(
-              //                             fontSize: 12,
-              //                             color:
-              //                                 Color.fromARGB(255, 62, 62, 62),
-              //                           ),
-              //                         ),
-              //                       ],
-              //                     ),
-              //                   ),
-              //                 ),
-              //               ),
-              //             ),
-              //           );
-              //         },
-              //       )),
-              // ),
-              // const Padding(
-              //   padding: EdgeInsets.all(10),
-              //   child: Row(
-              //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              //     children: [
-              //       Text(
-              //         'More Stories',
-              //         style: TextStyle(
-              //           fontSize: 25,
-              //           fontFamily: 'Gilroy',
-              //           color: Color(0XFF154961),
-              //           letterSpacing: -1.0,
-              //         ),
-              //       ),
-              //     ],
-              //   ),
-              // ),
-              // Padding(
-              //   padding: const EdgeInsets.all(10),
-              //   child: SizedBox(
-              //       height: 300,
-              //       width: 800,
-              //       child: ListView.builder(
-              //         scrollDirection: Axis.horizontal,
-              //         itemCount: items.length,
-              //         itemBuilder: (context, index) {
-              //           final item = items[index];
-              //           return Container(
-              //             margin: const EdgeInsets.symmetric(
-              //                 horizontal: 10, vertical: 12),
-              //             child: SizedBox(
-              //               width: 200,
-              //               height: 700,
-              //               child: Center(
-              //                 child: Card(
-              //                   color: Color.fromARGB(255, 175, 220, 241),
-              //                   elevation: 10,
-              //                   child: Padding(
-              //                     padding: const EdgeInsets.all(13),
-              //                     child: Column(
-              //                       crossAxisAlignment:
-              //                           CrossAxisAlignment.start,
-              //                       children: [
-              //                         ClipRRect(
-              //                           borderRadius: BorderRadius.circular(15),
-              //                           child: Image.asset(
-              //                             'assets/pepito.png',
-              //                             fit: BoxFit.fitHeight,
-              //                             width: 200,
-              //                             height: 120,
-              //                           ),
-              //                         ),
-              //                         const Text(
-              //                           'Ofel weakens into severe tropical storm...',
-              //                           style: TextStyle(
-              //                             fontFamily: 'SfPro',
-              //                             fontSize: 16,
-              //                             fontWeight: FontWeight.bold,
-              //                           ),
-              //                         ),
-              //                         const Text(
-              //                           'At its peak, Ofel was a super typhoon with maximum sust...',
-              //                           style: TextStyle(
-              //                             fontSize: 12,
-              //                             color:
-              //                                 Color.fromARGB(255, 62, 62, 62),
-              //                           ),
-              //                         ),
-              //                       ],
-              //                     ),
-              //                   ),
-              //                 ),
-              //               ),
-              //             ),
-              //           );
-              //         },
-              //       )),
-              // ),
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: SizedBox(
+                    height: 240,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return Container(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 12),
+                          child: SizedBox(
+                            width: 300,
+                            height: 700,
+                            child: Center(
+                              child: Card(
+                                color: Color.fromARGB(255, 175, 220, 241),
+                                elevation: 10,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(13),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(15),
+                                        child: Image.asset(
+                                          'assets/pepito.png',
+                                          fit: BoxFit.fitWidth,
+                                          width: 400,
+                                          height: 90,
+                                        ),
+                                      ),
+                                      const Text(
+                                        'Pepito rapidly intensifies into typhoon',
+                                        style: TextStyle(
+                                          fontFamily: 'SfPro',
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const Text(
+                                        'Typhoon Pepito (Man-yi) will continue to undergo rapid intensification until Saturday, November 16...',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color:
+                                              Color.fromARGB(255, 62, 62, 62),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    )),
+              ),
+              const Padding(
+                padding: EdgeInsets.all(10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'More Stories',
+                      style: TextStyle(
+                        fontSize: 25,
+                        fontFamily: 'Gilroy',
+                        color: Color(0XFF154961),
+                        letterSpacing: -1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: SizedBox(
+                    height: 300,
+                    width: 800,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return Container(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 12),
+                          child: SizedBox(
+                            width: 200,
+                            height: 700,
+                            child: Center(
+                              child: Card(
+                                color: Color.fromARGB(255, 175, 220, 241),
+                                elevation: 10,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(13),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(15),
+                                        child: Image.asset(
+                                          'assets/pepito.png',
+                                          fit: BoxFit.fitHeight,
+                                          width: 200,
+                                          height: 120,
+                                        ),
+                                      ),
+                                      const Text(
+                                        'Ofel weakens into severe tropical storm...',
+                                        style: TextStyle(
+                                          fontFamily: 'SfPro',
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const Text(
+                                        'At its peak, Ofel was a super typhoon with maximum sust...',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color:
+                                              Color.fromARGB(255, 62, 62, 62),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    )),
+              ),
             ],
           ),
         ),

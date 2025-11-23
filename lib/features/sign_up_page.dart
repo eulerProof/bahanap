@@ -171,7 +171,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     const Text(
                       'Name',
                       style: TextStyle(
@@ -190,7 +190,7 @@ class _SignUpPageState extends State<SignUpPage> {
                           labelStyle: const TextStyle(
                               color: Color(0xFFAFAFAF), fontSize: 15)),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     const Text(
                       'Phone number',
                       style: TextStyle(
@@ -209,7 +209,7 @@ class _SignUpPageState extends State<SignUpPage> {
                           labelStyle: const TextStyle(
                               color: Color(0xFFAFAFAF), fontSize: 15)),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     const Text(
                       'Password',
                       style: TextStyle(
@@ -235,7 +235,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     const Text(
                       'Confirm Password',
                       style: TextStyle(
@@ -292,7 +292,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -314,6 +314,7 @@ class _SignUpPageState extends State<SignUpPage> {
                               'email': _emailController.text,
                               'Name': _nameController.text,
                               'PhoneNumber': _phoneController.text,
+                              'role': "Citizen",
                             });
 
                             _showDialog(context, 'Sign-Up Successful',
@@ -361,147 +362,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    const Row(
-                      children: [
-                        Expanded(child: Divider()),
-                        SizedBox(width: 12),
-                        Text(
-                          'or sign up with',
-                          style: TextStyle(color: Color(0Xff575757)),
-                        ),
-                        SizedBox(width: 12),
-                        Expanded(child: Divider()),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                    title: const Text("Login with google"),
-                                    content:
-                                        const Text("Google Login API here."),
-                                    actions: [
-                                      TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context),
-                                          child: const Text("Ok"))
-                                    ],
-                                  ));
-                        },
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                          backgroundColor:
-                              Theme.of(context).scaffoldBackgroundColor,
-                          foregroundColor: Colors.black,
-                          elevation: 5.0,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Image.asset(
-                              'assets/google.png',
-                              height: 24,
-                              width: 24,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Continue with Google',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                    title: const Text("Login with apple"),
-                                    content:
-                                        const Text("Apple Login API here."),
-                                    actions: [
-                                      TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context),
-                                          child: const Text("Ok"))
-                                    ],
-                                  ));
-                        },
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
-                          elevation: 5.0,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Image.asset(
-                              'assets/apple.png',
-                              height: 24,
-                              width: 24,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Continue with Apple',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                    title: const Text("Login with facebook"),
-                                    content:
-                                        const Text("Facebook Login API here."),
-                                    actions: [
-                                      TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context),
-                                          child: const Text("Ok"))
-                                    ],
-                                  ));
-                        },
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                          backgroundColor: Color(0XFF3b5998),
-                          foregroundColor: Colors.white,
-                          elevation: 5.0,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Image.asset(
-                              'assets/facebook.png',
-                              height: 24,
-                              width: 24,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Continue with Facebook',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 70)
+                    const SizedBox(height: 70,)
                   ],
                 ),
               ),

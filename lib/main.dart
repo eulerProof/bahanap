@@ -19,9 +19,12 @@ import 'features/sign_in_page.dart';
 import 'features/verify.dart';
 import 'features/notifications_page.dart';
 import 'features/image_provider.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await FMTCObjectBoxBackend().initialise();
+  await FMTCStore('mapStore').manage.create();
   await Firebase.initializeApp(
       name: "dev project", options: DefaultFirebaseOptions.currentPlatform);
   runApp(

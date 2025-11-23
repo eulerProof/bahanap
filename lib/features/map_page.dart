@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cc206_bahanap/features/image_provider.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:network_info_plus/network_info_plus.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -25,37 +27,131 @@ class _MapPageState extends State<MapPage> {
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
 
+  // Use the mapStore initialized in main.dart
+  final _tileProvider = FMTCTileProvider(
+    stores: const {'mapStore': BrowseStoreStrategy.readUpdateCreate},
+  );
+
   LatLng? userLocation;
-  Marker? _userMarker;
-  final List<Marker> _markers = [];
+  // Dedicated markers/lists for clear management
+  Marker? _userMarker; // Current user marker
+  Marker? _lorawanMarker; // Lorawan module marker
+  final List<Marker> _peerMarkers = []; // Other users' markers
+  final List<Marker> _markers = []; // Combined list for FlutterMap
+
   StreamSubscription<Position>? _positionStreamSubscription;
-  String userName = " ";
+  StreamSubscription<QuerySnapshot>? _peerLocationsSubscription;
+  Timer? _locationUpdateTimer;
+
+  String userName = "";
   String _username = '';
   double _latitude = 0;
   double _longitude = 0;
   String _responseMessage = '';
+
+  // --- INITIALIZATION AND DISPOSAL ---
+
   @override
   void initState() {
     super.initState();
-    DeviceOrientation.portraitUp;
-    _refresh();
-  _fetchLocationFromModule();
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
+    // Auth and Data Fetching
     _fetchUserName();
-    // _initializeMarkers();
-    _initializeLorawanMarker();
-    // _startLocationUpdates();
+
+    // Location and Mapping
+    _fetchCurrentLocationAndStartUpdates();
+    _listenToOtherUserLocations();
+    _fetchLocationFromModule();
   }
 
   @override
   void dispose() {
     _positionStreamSubscription?.cancel();
+    _peerLocationsSubscription?.cancel();
+    _locationUpdateTimer?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _fetchCurrentLocation();
+  // --- CORE LOGIC ---
+
+  /// Combines the initial location fetch and starts periodic updates.
+  void _fetchCurrentLocationAndStartUpdates() async {
+    await _fetchCurrentLocation(); // Initial fetch
+
+    // Stop previous timer if running
+    _locationUpdateTimer?.cancel();
+
+    // Start periodic updates (e.g., every 15 seconds to be battery-friendly)
+    _locationUpdateTimer =
+        Timer.periodic(const Duration(seconds: 15), (Timer t) {
+      _fetchCurrentLocation();
+    });
+  }
+
+  /// Listens to real-time coordinate updates for all other users.
+  void _listenToOtherUserLocations() {
+    final String currentUserUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (currentUserUid.isEmpty) return;
+
+    // Listen for changes in the entire profiles collection
+    _peerLocationsSubscription = FirebaseFirestore.instance
+        .collection('profiles')
+        .snapshots()
+        .listen((snapshot) {
+      _peerMarkers.clear();
+      for (var doc in snapshot.docs) {
+        if (doc.id == currentUserUid) continue; // Skip current user
+
+        // Prioritize LiveCoordinates if available, fall back to static Coordinates
+        String coordinatesString = doc['LiveCoordinates'] ??
+            doc['Coordinates'] ??
+            "Lat: 0.0, Lon: 0.0";
+        String fullName = doc['Name'] ?? "User";
+
+        // Simple regex to extract numbers, assuming format is "Lat: X, Lon: Y" or similar
+        // We will remove non-numeric characters except for '.', '-', and ','
+        List<String> latLngParts = coordinatesString.split(',');
+        double latitude = double.tryParse(
+                latLngParts[0].replaceAll(RegExp(r'[^\d.-]'), '').trim()) ??
+            0.0;
+        double longitude = double.tryParse(latLngParts.length > 1
+                ? latLngParts[1].replaceAll(RegExp(r'[^\d.-]'), '').trim()
+                : "0.0") ??
+            0.0;
+
+        if (latitude != 0.0 || longitude != 0.0) {
+          String peerName = fullName.split(' ').first;
+          // Other users get a Green circle border
+          _peerMarkers.add(
+            Marker(
+              width: 100.0,
+              height: 100.0,
+              point: LatLng(latitude, longitude),
+              child: _buildMarkerChild(
+                  peerName,
+                  Colors.green,
+                  // Assuming all other users use the same default placeholder image
+                  const AssetImage('assets/images/dgfdfdsdsf2.jpg')),
+            ),
+          );
+        }
+      }
+      _rebuildMarkersList();
+    }, onError: (error) {
+      print("Error listening to peer locations: $error");
+    });
+  }
+
+  /// Rebuilds the final list of markers for the map.
+  void _rebuildMarkersList() {
+    setState(() {
+      _markers.clear();
+      if (_userMarker != null) _markers.add(_userMarker!);
+      if (_lorawanMarker != null) _markers.add(_lorawanMarker!);
+      _markers.addAll(_peerMarkers);
+    });
   }
 
   Future<void> _fetchUserName() async {
@@ -68,7 +164,7 @@ class _MapPageState extends State<MapPage> {
             .get();
         if (userDoc.exists) {
           setState(() {
-            String fullName = userDoc['Name'] ?? "You ";
+            String fullName = userDoc['Name'] ?? "You";
             userName = fullName.split(' ').first;
           });
         }
@@ -77,103 +173,8 @@ class _MapPageState extends State<MapPage> {
       }
     }
   }
-  Future<void> _fetchLocationFromModule() async {
-  try {
-    final wifiName = await NetworkInfo().getWifiName();
 
-      if (wifiName == null) {
-        setState(() {
-          _responseMessage = "Not connected to any WiFi network.";
-        });
-        return;
-      }
-
-      String? esp32IP;
-      if (wifiName.contains("Bahanap_Node_A")) {
-        esp32IP = "192.168.4.1";
-      } else if (wifiName.contains("Bahanap_Node_B")) {
-        esp32IP = "192.168.4.2";
-      } else {
-        setState(() {
-          _responseMessage = "Not connected to a valid ESP32 node WiFi.";
-        });
-        return;
-      }
-    final response = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body); // Parse JSON
-
-      if (data["id"]?.toString() ==  userName) {
-        setState(() {
-          // Assign extracted fields to variables
-          _username = data["id"] ?? "Unknown";
-          _latitude = data["lat"]?.toDouble() ?? 0.0;
-          _longitude = data["lon"]?.toDouble() ?? 0.0;
-
-        });
-      }
-    } else {
-      setState(() {
-        _responseMessage =
-            'Failed to receive message. Status: ${response.statusCode}';
-      });
-    }
-  } catch (e) {
-    setState(() {
-      _responseMessage = 'Error: $e';
-    });
-  }
-}
-
-  void _initializeLorawanMarker() async {
-    try {
-      _markers.add(
-              Marker(
-                width: 100.0,
-                height: 100.0,
-                point: LatLng(_latitude, _longitude),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.red,
-                          width: 3.0,
-                        ),
-                      ),
-                      child: CircleAvatar(
-                        radius: 15,
-                        backgroundImage:
-                            const AssetImage('assets/images/dgfdfdsdsf2.jpg'),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _username,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12.0,
-                        fontFamily: 'SfPro',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-        );
-      
-      setState(() {});
-    }
-    catch (e){
-      _responseMessage = "Error initializing markers: $e";
-    }
-  }
-  void _refresh () async {
-    await _fetchLocationFromModule();
-    _initializeLorawanMarker();
-  }
+  /// Fetches the user's current GPS location.
   Future<void> _fetchCurrentLocation() async {
     try {
       Position position = await Geolocator.getCurrentPosition(
@@ -183,81 +184,21 @@ class _MapPageState extends State<MapPage> {
         userLocation = newLocation;
         _updateUserMarker(newLocation);
         uploadLocation(newLocation);
+        _rebuildMarkersList();
       });
+      // Optionally move the map to the user's location on initial load
+      if (_mapController.camera.center == LatLng(10.7202, 122.5621) ||
+          _mapController.camera.zoom == 13.0) {
+        _mapController.move(newLocation, 18.0);
+      }
     } catch (e) {
       print("Error fetching current location: $e");
-      _showErrorDialog('Unable to fetch current location.');
+      // Only show dialog once if location is critical, otherwise log silently
+      // _showErrorDialog('Unable to fetch current location.');
     }
   }
 
-  // void _initializeMarkers() async {
-  //   _markers.clear();
-
-  //   final String currentUserUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-
-  //   try {
-  //     QuerySnapshot querySnapshot =
-  //         await FirebaseFirestore.instance.collection('profiles').get();
-
-  //     for (var doc in querySnapshot.docs) {
-  //       String coordinates = doc['Coordinates'] ?? "0.0, 0.0";
-  //       String fullName = doc['Name'] ?? "User";
-  //       String uid = doc.id;
-
-  //       if (uid == currentUserUid) {
-  //         continue;
-  //       }
-
-  //       String imagePath = 'assets/images/dgfdfdsdsf2.jpg';
-
-  //       List<String> latLng = coordinates.split(',');
-  //       double latitude = double.tryParse(latLng[0].trim()) ?? 0.0;
-  //       double longitude = double.tryParse(latLng[1].trim()) ?? 0.0;
-
-  //       String userName = fullName.split(' ').first;
-
-  //       _markers.add(
-  //         Marker(
-  //           width: 100.0,
-  //           height: 100.0,
-  //           point: LatLng(latitude, longitude),
-  //           child: Column(
-  //             mainAxisSize: MainAxisSize.min,
-  //             children: [
-  //               Container(
-  //                 decoration: BoxDecoration(
-  //                   shape: BoxShape.circle,
-  //                   border: Border.all(
-  //                     color: Colors.green,
-  //                     width: 3.0,
-  //                   ),
-  //                 ),
-  //                 child: CircleAvatar(
-  //                   radius: 15,
-  //                   backgroundImage: AssetImage(imagePath),
-  //                 ),
-  //               ),
-  //               const SizedBox(height: 4),
-  //               Text(
-  //                 userName,
-  //                 style: const TextStyle(
-  //                   fontWeight: FontWeight.bold,
-  //                   fontSize: 12.0,
-  //                   fontFamily: 'SfPro',
-  //                 ),
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //       );
-  //     }
-
-  //     setState(() {});
-  //   } catch (e) {
-  //     print("Error initializing markers: $e");
-  //   }
-  // }
-
+  /// Uploads the current user's location to Firestore.
   Future<void> uploadLocation(LatLng loc) async {
     final String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (uid.isEmpty) {
@@ -268,107 +209,194 @@ class _MapPageState extends State<MapPage> {
     try {
       String formattedLocation = "Lat: ${loc.latitude}, Lon: ${loc.longitude}";
 
+      // Use LiveCoordinates for real-time tracking
       await FirebaseFirestore.instance.collection("profiles").doc(uid).set({
         "LiveCoordinates": formattedLocation,
         "timestamp": FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      print("Location updated successfully");
+      // print("Location updated successfully");
     } catch (e) {
       print("Error updating location: $e");
     }
   }
 
+  /// Updates the current user's marker.
+  void _updateUserMarker(LatLng location) {
+    // Get the user's custom image from the provider
+    final imageProvider =
+        Provider.of<CustomImageProvider>(context, listen: false);
+    final imageFile = imageProvider.imageFile;
+
+    ImageProvider markerImage;
+    if (imageFile != null) {
+      markerImage = FileImage(imageFile);
+    } else {
+      markerImage = const AssetImage('assets/images/dgfdfdsdsf2.jpg');
+    }
+
+    _userMarker = Marker(
+      width: 100.0,
+      height: 100.0,
+      point: location,
+      child: _buildMarkerChild(userName, Colors.blue, markerImage),
+    );
+  }
+
+  /// Fetches the Lorawan module's last reported location.
+  Future<void> _fetchLocationFromModule() async {
+    try {
+      final wifiName = await NetworkInfo().getWifiName();
+
+      if (wifiName == null ||
+          (!wifiName.contains("Bahanap_Node_A") &&
+              !wifiName.contains("Bahanap_Node_B"))) {
+        setState(() {
+          _responseMessage = "Not connected to a relevant ESP32 node WiFi.";
+        });
+        return;
+      }
+
+      String? esp32IP;
+      if (wifiName.contains("Bahanap_Node_A")) {
+        esp32IP = "192.168.4.1";
+      } else if (wifiName.contains("Bahanap_Node_B")) {
+        esp32IP = "192.168.4.2";
+      }
+
+      final response = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body); // Parse JSON
+
+        // Check if the reported ID matches the current user's name
+        if (data["rescuer"]?.toString() == userName) {
+          setState(() {
+            _username = data["uid"] ?? "Unknown";
+            _latitude = data["lat"]?.toDouble() ?? 0.0;
+            _longitude = data["lon"]?.toDouble() ?? 0.0;
+            _updateLorawanMarker(LatLng(_latitude, _longitude), _username);
+            _rebuildMarkersList();
+            _responseMessage = 'Location from module received.';
+          });
+        }
+      } else {
+        setState(() {
+          _responseMessage =
+              'Failed to receive message. Status: ${response.statusCode}';
+        });
+      }
+    } on SocketException catch (_) {
+      setState(() {
+        _responseMessage = 'Error: No connection to ESP32 module.';
+      });
+    } catch (e) {
+      setState(() {
+        _responseMessage = 'Error fetching module location: $e';
+      });
+    }
+  }
+
+  /// Updates the Lorawan module marker.
+  void _updateLorawanMarker(LatLng location, String name) {
+    _lorawanMarker = Marker(
+      width: 100.0,
+      height: 100.0,
+      point: location,
+      child: _buildMarkerChild(
+          name,
+          Colors.red,
+          const AssetImage(
+              'assets/images/dgfdfdsdsf2.jpg') // Use asset or specific Lorawan icon
+          ),
+    );
+  }
+
+  /// Refreshes all non-streamed data (Lorawan location).
+  void _refresh() async {
+    await _fetchLocationFromModule();
+    _rebuildMarkersList();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content:
+              Text('Map data refreshed. Lorawan status: $_responseMessage')),
+    );
+  }
+
+  // --- UI HELPER WIDGETS ---
+
+  /// Reusable widget for creating the marker look (avatar and name tag).
+  Widget _buildMarkerChild(
+      String name, Color borderColor, ImageProvider imageProvider) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: borderColor,
+              width: 3.0,
+            ),
+          ),
+          child: CircleAvatar(
+            radius: 15,
+            backgroundImage: imageProvider,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          name,
+          style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12.0,
+              fontFamily: 'SfPro',
+              color: Colors.black,
+              shadows: [
+                Shadow(
+                  color: Colors.white,
+                  blurRadius: 2.0,
+                ),
+              ]),
+        ),
+      ],
+    );
+  }
+
+  // --- MAP CONTROLS AND SEARCH ---
+
   Future<void> _searchLocation() async {
+    // ... (unchanged search logic)
     String query = _searchController.text.trim();
     if (query.isNotEmpty) {
       try {
         List<Location> locations = await locationFromAddress(query);
-
-        debugPrint("Geocoding result: $locations");
-
         if (locations.isEmpty) {
           _showErrorDialog('No locations found for "$query".');
         } else {
           Location location = locations.first;
-          debugPrint(
-              "Location found: ${location.latitude}, ${location.longitude}");
-
           _mapController.move(
-              LatLng(location.latitude, location.longitude), 13.0);
+              LatLng(location.latitude, location.longitude), 15.0);
         }
       } catch (e) {
-        debugPrint("Geocoding error: $e");
-        _showErrorDialog('Error: $e');
+        _showErrorDialog(
+            'Geocoding error: Check address or internet connection.');
       }
     } else {
       _showErrorDialog('Please enter a valid address to search.');
     }
   }
 
-  // void _startLocationUpdates() {
-  //   _positionStreamSubscription = Geolocator.getPositionStream(
-  //     locationSettings: const LocationSettings(
-  //       accuracy: LocationAccuracy.high,
-  //       distanceFilter: 1,
-  //     ),
-  //   ).listen((Position position) {
-  //     LatLng newLocation = LatLng(position.latitude, position.longitude);
-  //     setState(() {
-  //       userLocation = newLocation;
-  //       _updateUserMarker(newLocation);
-  //       uploadLocation(newLocation);
-  //     });
-  //   });
-  // }
-
-  void _updateUserMarker(LatLng location) {
-    if (_userMarker != null) {
-      _markers.remove(_userMarker);
-    }
-
-    final imageProvider =
-        Provider.of<CustomImageProvider>(context, listen: false);
-    final imageFile = imageProvider.imageFile;
-
-    _userMarker = Marker(
-        width: 100.0,
-        height: 100.0,
-        point: location,
-        child: Column(
-          children: [
-            Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.blue,
-                    width: 3.0,
-                  ),
-                ),
-                child: CircleAvatar(
-                  radius: 15,
-                  backgroundImage: imageFile != null
-                      ? FileImage(imageFile)
-                      : const AssetImage('assets/images/dgfdfdsdsf2.jpg'),
-                )),
-            Text(
-              userName,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12.0,
-                  fontFamily: 'SfPro'),
-            ),
-          ],
-        ));
-
-    _markers.add(_userMarker!);
-  }
-
   Future<void> _moveToUserLocation() async {
     if (userLocation != null) {
       _mapController.move(userLocation!, 18.0);
     } else {
-      _showErrorDialog('User location is not available.');
+      await _fetchCurrentLocation();
+      if (userLocation != null) {
+        _mapController.move(userLocation!, 18.0);
+      } else {
+        _showErrorDialog('User location is not available.');
+      }
     }
   }
 
@@ -388,27 +416,7 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  Future<void> showUserLocationString() async {
-    if (userLocation != null) {
-      try {
-        List<Placemark> placemarks = await placemarkFromCoordinates(
-            userLocation!.latitude, userLocation!.longitude);
-        Placemark place = placemarks.first;
-
-        String address =
-            '${place.street}, ${place.locality}, ${place.administrativeArea}, ${place.country}';
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Your location: $address')),
-        );
-      } catch (e) {
-        debugPrint('Error retrieving address: $e');
-        _showErrorDialog('Error retrieving address: $e');
-      }
-    } else {
-      _showErrorDialog('User location is not available.');
-    }
-  }
+  // --- BUILD METHOD ---
 
   @override
   Widget build(BuildContext context) {
@@ -416,21 +424,35 @@ class _MapPageState extends State<MapPage> {
       child: Scaffold(
         body: Stack(
           children: [
+            // --- FLUTTER MAP WIDGET ---
             FlutterMap(
               mapController: _mapController,
               options: MapOptions(
+                // Use Iloilo as default center if location is not yet available
                 initialCenter: userLocation ?? LatLng(10.7202, 122.5621),
                 initialZoom: 13.0,
               ),
               children: [
                 TileLayer(
+                  // Using CartoDB Positron as a highly available, OSM-based alternative.
+                  // This is generally more reliable for non-commercial use than the default OSM tiles.
                   urlTemplate:
-                      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                  subdomains: ['a', 'b', 'c'],
+                      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                  subdomains: const [
+                    'a',
+                    'b',
+                    'c',
+                    'd'
+                  ], // CartoDB uses subdomains
+                  tileProvider: _tileProvider, // FMTC Caching is here
+                  maxZoom: 20, // CartoDB supports higher zoom
+                  minZoom: 1,
                 ),
                 MarkerLayer(markers: _markers),
               ],
             ),
+
+            // --- SEARCH BAR ---
             Positioned(
                 top: 20,
                 left: 16,
@@ -475,35 +497,38 @@ class _MapPageState extends State<MapPage> {
                     },
                   ),
                 )),
+
+            // --- FLOATING CONTROLS (My Location, Zoom, Refresh) ---
             Positioned(
               top: 100,
               right: 16,
-              child: GestureDetector(
-                onTap: _moveToUserLocation,
-                child: Container(
-                  height: 35,
-                  width: 35,
-                  decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 255, 255, 255),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.black,
-                      width: 0.5,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.location_on_outlined,
-                    size: 25.0,
-                    color: Color(0xff32ade6),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 140,
-              right: 16,
               child: Column(
                 children: [
+                  // My Location Button
+                  GestureDetector(
+                    onTap: _moveToUserLocation,
+                    child: Container(
+                      height: 35,
+                      width: 35,
+                      margin: const EdgeInsets.only(bottom: 6),
+                      decoration: BoxDecoration(
+                        color: const Color.fromARGB(255, 255, 255, 255),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.black,
+                          width: 0.5,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons
+                            .my_location, // Changed to a more standard location icon
+                        size: 20.0,
+                        color: Color(0xff32ade6),
+                      ),
+                    ),
+                  ),
+
+                  // Zoom In
                   GestureDetector(
                     onTap: () {
                       _mapController.move(
@@ -524,12 +549,14 @@ class _MapPageState extends State<MapPage> {
                       ),
                       child: const Icon(
                         Icons.zoom_in,
-                        size: 30,
+                        size: 25,
                         color: Colors.black,
                       ),
                     ),
                   ),
                   const SizedBox(height: 6),
+
+                  // Zoom Out
                   GestureDetector(
                     onTap: () {
                       _mapController.move(
@@ -550,15 +577,16 @@ class _MapPageState extends State<MapPage> {
                       ),
                       child: const Icon(
                         Icons.zoom_out,
-                        size: 30,
+                        size: 25,
                         color: Colors.black,
                       ),
                     ),
                   ),
+                  const SizedBox(height: 6),
+
+                  // Refresh (mainly for Lorawan module location)
                   GestureDetector(
-                    onTap: () {
-                      _refresh();
-                    },
+                    onTap: _refresh,
                     child: Container(
                       height: 35,
                       width: 35,
@@ -572,7 +600,7 @@ class _MapPageState extends State<MapPage> {
                       ),
                       child: const Icon(
                         Icons.refresh,
-                        size: 30,
+                        size: 25,
                         color: Colors.black,
                       ),
                     ),
@@ -582,40 +610,39 @@ class _MapPageState extends State<MapPage> {
             ),
           ],
         ),
+
+        // --- FLOATING ACTION BUTTON (SOS) ---
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        backgroundColor: Color(0xff32ade6),
         floatingActionButton: SizedBox(
           height: 90,
           width: 90,
           child: FloatingActionButton(
-            onPressed: () {
-              Navigator.pushNamed(context, 'sos');
-            },
-            backgroundColor: const Color(0xffff0000),
-            shape: const CircleBorder(),
-            child: Container(
+              onPressed: () {
+                Navigator.pushNamed(context, 'sos');
+              },
+              backgroundColor: const Color(0xffff0000),
+              shape: const CircleBorder(),
+              child: Container(
                 alignment: Alignment.center,
                 child: const Text(
-                'SOS',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 23,
-                    fontFamily: 'SfPro',
-                    color: Colors.white,
-                    letterSpacing: 3),
-              ),
-              
-              height: 77,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xffB70000)
-              ),
-              )
-          ),
+                  'SOS',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 23,
+                      fontFamily: 'SfPro',
+                      color: Colors.white,
+                      letterSpacing: 3),
+                ),
+                height: 77,
+                decoration: const BoxDecoration(
+                    shape: BoxShape.circle, color: Color(0xffB70000)),
+              )),
         ),
+
+        // --- BOTTOM NAVIGATION BAR ---
         bottomNavigationBar: BottomAppBar(
-          color: Color(0xff32ade6),
+          color: const Color(0xff32ade6),
           shape: const CircularNotchedRectangle(),
           notchMargin: 6.0,
           child: Container(
@@ -626,6 +653,7 @@ class _MapPageState extends State<MapPage> {
               ),
             ),
             child: SizedBox(
+              height: 50, // Standard height for better layout
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10.0),
                 child: Row(
@@ -648,7 +676,7 @@ class _MapPageState extends State<MapPage> {
                         }
                       },
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 40), // Space for FAB
                     IconButton(
                       icon: const Icon(Icons.notifications),
                       iconSize: 30,

@@ -8,22 +8,24 @@ class UserService {
 
   String? username;
 
-  Future<void> fetchUsername() async {
-    // Only fetch if not already fetched
-    
+  Future<String> fetchUsername() async {
+  final user = FirebaseAuth.instance.currentUser;
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        final snapshot = await FirebaseFirestore.instance
-            .collection('profiles')
-            .doc(user.uid)
-            .get();
-
-        username = snapshot.data()?['Name']; // Or 'username'
-      } catch (e) {
-        print("Failed to fetch username: $e");
-      }
-    }
+  if (user == null) {
+    return "No user found";
   }
+
+  try {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('profiles')
+        .doc(user.uid)
+        .get();
+
+    username = snapshot.data()?['Name'];
+    return username ?? "No user found";
+  } catch (e) {
+    print("Failed to fetch username: $e");
+    return "No user found";
+  }
+}
 }

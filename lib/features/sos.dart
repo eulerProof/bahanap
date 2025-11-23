@@ -22,7 +22,7 @@ class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
   Timer? _timer;
   late Animation<double> _opacity;
   StreamSubscription<Position>? _positionStreamSubscription;
-  String _status = "";
+  String _status = "Connecting...";
   String _username = "";
   String _coordinates = "";
   @override
@@ -45,8 +45,8 @@ class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
   }
   
   Future<void> _getUsername() async {
-    setState(() {
-      _username = UserService().username!;
+    setState(() async {
+      _username = await UserService().fetchUsername();
     });
   }
   Future<void> _initializeSOS() async {
@@ -179,16 +179,16 @@ class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
           },
           body: jsonEncode(payload),
         )
-        .timeout(const Duration(seconds: 3)); // Add timeout for safety
+        .timeout(const Duration(seconds: 8)); // Add timeout for safety
     
     // Update UI status
     setState(() {
       if (response.statusCode == 200) {
-        _status = '✅ Message sent successfully!';
+        _status = 'SOS Alert sent!';
           
         
       } else {
-        _status = '❌ Failed to send. Status: ${response.statusCode}';
+        _status = 'SOS Alert failed to send. Please try again.';
       }
     });
     } catch (e) {
@@ -227,7 +227,7 @@ class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
                   return Opacity(
                     opacity: _opacity.value,
                     child: Text(
-                      "Username: $_username",
+                      _status,
                       style: const TextStyle(
                         color: Color(0xff32ade6),
                         fontSize: 13,

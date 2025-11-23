@@ -29,10 +29,7 @@ class _DashboardPageState extends State<DashboardPage> {
   String _responseMessage2 = '';
   String _coordinates = '';
    String userName = "";
-   List<String> preDisaster = [];
-  List<String> duringDisaster = [];
-  List<String> postDisaster = [];
-
+   
   
   @override
   void dispose() {
@@ -52,6 +49,7 @@ class _DashboardPageState extends State<DashboardPage> {
     fetchGuidelines();
   }
   Widget buildCategorySection(String title, List<String> items) {
+    
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -82,6 +80,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
   Future<void> fetchGuidelines() async {
+    final provider = Provider.of<CustomImageProvider>(context, listen: false);
     try {
       final wifiName = await NetworkInfo().getWifiName();
 
@@ -107,12 +106,14 @@ class _DashboardPageState extends State<DashboardPage> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-
-        setState(() {
-          preDisaster = List<String>.from(data["preDisaster"] ?? ["None, error"]);
-          duringDisaster = List<String>.from(data["duringDisaster"] ?? ["None"]);
-          postDisaster = List<String>.from(data["postDisaster"] ?? ["None"]);
-        });
+        if (data["category"] == "Pre-disaster") {
+          provider.addPreDisaster(data["content"]);
+        } else if (data["category"] == "During disaster") {
+          provider.addDuringDisaster(data["content"]);
+        } else if (data["category"] == "Post-disaster") {
+          provider.addPostDisaster(data["content"]);
+        }
+        
       } else {
         print("Failed to fetch guidelines: ${response.statusCode}");
       }
@@ -121,6 +122,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
   void _showGuidelines() async {
+    final provider = Provider.of<CustomImageProvider>(context, listen: false);
       await fetchGuidelines();
       showGeneralDialog(
         context: context,
@@ -155,11 +157,11 @@ class _DashboardPageState extends State<DashboardPage> {
               textAlign: TextAlign.start,
             ),
             const SizedBox(height: 20),
-            buildCategorySection("Pre-Disaster Guidelines", preDisaster),
+            buildCategorySection("Pre-Disaster Guidelines", provider.preDisaster),
             const SizedBox(height: 20),
-            buildCategorySection("During Disaster Guidelines", duringDisaster),
+            buildCategorySection("During Disaster Guidelines", provider.duringDisaster),
             const SizedBox(height: 20),
-            buildCategorySection("Post-Disaster Guidelines", postDisaster),
+            buildCategorySection("Post-Disaster Guidelines", provider.postDisaster),
           ],
         ),
       ),
@@ -376,6 +378,7 @@ Future<void> _initializeUser() async {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<CustomImageProvider>(context);
     return SafeArea(
       child: Scaffold(
         body: Container(
@@ -392,28 +395,22 @@ Future<void> _initializeUser() async {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          GestureDetector(
-                            onTap: _pickImage,
-                            child: CircleAvatar(
-                              radius: 30,
-                              backgroundImage: Provider.of<CustomImageProvider>(
-                                              context)
-                                          .imageFile !=
-                                      null
-                                  ? FileImage(
-                                      Provider.of<CustomImageProvider>(context)
-                                          .imageFile!)
-                                  : AssetImage('assets/images/dgfdfdsdsf2.jpg'),
+                          
+                          const SizedBox(width: 48),
+                          const Expanded(
+                            child: Center(
+                              child: Text(
+                                'BaHanap',
+                                key: ValueKey('bahanapText'),
+                                style: TextStyle(
+                                  fontSize: 35,
+                                  fontFamily: 'Gilroy',
+                                  color: Color(0XFF32ade6),
+                                  letterSpacing: -3.0,
+                                ),
+                              ),
                             ),
                           ),
-                          const Text('BaHanap',
-                              key: ValueKey('bahanapText'),
-                              style: TextStyle(
-                                fontSize: 35,
-                                fontFamily: 'Gilroy',
-                                color: Color(0XFF32ade6),
-                                letterSpacing: -3.0,
-                              )),
                           IconButton.outlined(
                             padding: EdgeInsets.all(9),
                             icon: const Icon(Icons.logout, color: Colors.black),
@@ -424,56 +421,10 @@ Future<void> _initializeUser() async {
                         ],
                       ),
                     )),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Expanded(
-                      child: Card(
-                        elevation: 5,
-                        margin: const EdgeInsets.fromLTRB(25, 17, 10, 17),
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(10)),
-                        ),
-                        color: const Color(0xff32ade6),
-                        child: Padding(
-                          padding: const EdgeInsets.all(5),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.location_on_outlined,
-                                color: Colors.white,
-                                size: 30,
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                height: 25,
-                                width: 275,
-                                child: Text(
-                                  currentAddress,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                    fontFamily: 'SfPro',
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        _fetchLocation();
-                      },
-                      icon: const Icon(Icons.edit_location_alt_outlined),
-                      iconSize: 30,
-                      color: const Color(0xff32ade6),
-                    ),
-                  ],
+                    const Divider(),
+               
+                const SizedBox(
+                  height: 20,
                 ),
                 Padding(
                   padding: EdgeInsets.all(10),
@@ -490,10 +441,8 @@ Future<void> _initializeUser() async {
                       // ---- Water Level ----
                       Padding(
                         padding: EdgeInsets.all(8),
-                        child: GestureDetector(
-                          child: 
-                          
-                          Container(
+                        child: 
+                         Container(
                             padding: EdgeInsets.fromLTRB(0,10,0,0),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(23),
@@ -553,30 +502,15 @@ Future<void> _initializeUser() async {
                               ],
                             ),
                           ),
-                          onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text("Water Level"),
-                                content: Text(
-                                    "This is where the Water level information would be."),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: Text("Ok"))
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                          
                       ),
 
                       // ---- Flood Probability ----
                       Padding(
-                        padding: EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(8),
                         child: GestureDetector(
                           child: Container(
-                            
+                            padding: const EdgeInsets.fromLTRB(0,10,0,0),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(23),
                               gradient: const LinearGradient(
@@ -589,10 +523,10 @@ Future<void> _initializeUser() async {
                               )
                             ),
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.start,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                
+                                SizedBox(height: 6),
                                 const Text(
                                   'Risk Level',
                                   style: TextStyle(
@@ -610,7 +544,7 @@ Future<void> _initializeUser() async {
                                     color: Colors.white,
                                   ),
                                   textAlign: TextAlign.center,
-                                ),
+                                ),SizedBox(height: 22),
                                 const Text(
                                   'Minimal Risk',
                                   style: TextStyle(
@@ -781,135 +715,6 @@ Future<void> _initializeUser() async {
                               ),
                             );
                           },
-                        ),
-                      ),
-
-                      // // ---- Send Message ----
-                      // Padding(
-                      //   padding: EdgeInsets.all(8),
-                      //   child: Card(
-                      //     color: Color(0xffa1d9f4),
-                      //     elevation: 10,
-                      //     child: Padding(
-                      //       padding: const EdgeInsets.all(10),
-                      //       child: Column(
-                      //         mainAxisAlignment: MainAxisAlignment.center,
-                      //         children: [
-                      //           const Text(
-                      //             'Send Message',
-                      //             style: TextStyle(
-                      //               fontSize: 20,
-                      //               fontWeight: FontWeight.bold,
-                      //               color: Colors.white,
-                      //               fontFamily: 'SfPro',
-                      //             ),
-                      //           ),
-                      //           const SizedBox(height: 8),
-                      //           TextField(
-                      //             controller: _textController,
-                      //             decoration: InputDecoration(
-                      //               hintText: 'Enter message',
-                      //               contentPadding: const EdgeInsets.symmetric(
-                      //                   horizontal: 8, vertical: 4),
-                      //               border: OutlineInputBorder(
-                      //                 borderRadius: BorderRadius.circular(8),
-                      //               ),
-                      //               fillColor: Colors.white,
-                      //               filled: true,
-                      //             ),
-                      //           ),
-                      //           const SizedBox(height: 8),
-                      //           ElevatedButton(
-                      //             onPressed: _sendPostRequest,
-                      //             style: ElevatedButton.styleFrom(
-                      //               backgroundColor: const Color(0xff32ade6),
-                      //               padding: const EdgeInsets.symmetric(
-                      //                   horizontal: 20, vertical: 10),
-                      //             ),
-                      //             child: const Text('Send',
-                      //                 style: TextStyle(color: Colors.white)),
-                      //           ),
-                      //           if (_responseMessage.isNotEmpty)
-                      //             Padding(
-                      //               padding: const EdgeInsets.only(top: 6),
-                      //               child: Text(
-                      //                 _responseMessage,
-                      //                 style: TextStyle(
-                      //                   color: _responseMessage
-                      //                           .contains('successfully')
-                      //                       ? Colors.green
-                      //                       : Colors.red,
-                      //                   fontSize: 12,
-                      //                   fontFamily: 'SfPro',
-                      //                 ),
-                      //                 textAlign: TextAlign.center,
-                      //               ),
-                      //             ),
-                      //         ],
-                      //       ),
-                      //     ),
-                      //   ),
-                      // ),
-
-                      // ---- Received Message ----
-                      Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Card(
-                          color: Color(0xffa1d9f4),
-                          elevation: 10,
-                          child: Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  'Received Message',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    fontFamily: 'SfPro',
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _responseMessage.isEmpty
-                                      ? 'No message received yet.'
-                                      : _responseMessage,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontFamily: 'SfPro',
-                                  ),
-                                ),
-                                Text(
-                                  _responseMessage2.isEmpty
-                                      ? 'No message received yet.'
-                                      : _responseMessage2,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 10,
-                                    fontFamily: 'SfPro',
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                ElevatedButton.icon(
-                                  onPressed: _fetchReceivedMessage,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xff32ade6),
-                                  ),
-                                  icon: const Icon(Icons.refresh,
-                                      color: Colors.white),
-                                  label: const Text(
-                                    'Refresh',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ),
                       ),
                     ],

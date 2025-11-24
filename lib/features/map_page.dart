@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cc206_bahanap/features/image_provider.dart';
+import 'package:cc206_bahanap/features/lora_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -58,11 +59,14 @@ class _MapPageState extends State<MapPage> {
 
     // Auth and Data Fetching
     _fetchUserName();
-
+    final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
+      loraProvider.addListener(() {
+        _updateLorawanMarkersFromProvider();
+      });
     // Location and Mapping
     _fetchCurrentLocationAndStartUpdates();
     _listenToOtherUserLocations();
-    _fetchLocationFromModule();
+    // _fetchLocationFromModule();
   }
 
   @override
@@ -244,77 +248,97 @@ class _MapPageState extends State<MapPage> {
   }
 
   /// Fetches the Lorawan module's last reported location.
-  Future<void> _fetchLocationFromModule() async {
-    try {
-      final wifiName = await NetworkInfo().getWifiName();
+  // Future<void> _fetchLocationFromModule() async {
+  //   try {
+  //     final wifiName = await NetworkInfo().getWifiName();
 
-      if (wifiName == null ||
-          (!wifiName.contains("Bahanap_Node_A") &&
-              !wifiName.contains("Bahanap_Node_B"))) {
-        setState(() {
-          _responseMessage = "Not connected to a relevant ESP32 node WiFi.";
-        });
-        return;
-      }
+  //     if (wifiName == null ||
+  //         (!wifiName.contains("Bahanap_Node_A") &&
+  //             !wifiName.contains("Bahanap_Node_B"))) {
+  //       setState(() {
+  //         _responseMessage = "Not connected to a relevant ESP32 node WiFi.";
+  //       });
+  //       return;
+  //     }
 
-      String? esp32IP;
-      if (wifiName.contains("Bahanap_Node_A")) {
-        esp32IP = "192.168.4.1";
-      } else if (wifiName.contains("Bahanap_Node_B")) {
-        esp32IP = "192.168.4.2";
-      }
+  //     String? esp32IP;
+  //     if (wifiName.contains("Bahanap_Node_A")) {
+  //       esp32IP = "192.168.4.1";
+  //     } else if (wifiName.contains("Bahanap_Node_B")) {
+  //       esp32IP = "192.168.4.2";
+  //     }
 
-      final response = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
+  //     final response = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body); // Parse JSON
+  //     if (response.statusCode == 200) {
+  //       final data = jsonDecode(response.body); // Parse JSON
 
-        // Check if the reported ID matches the current user's name
-        if (data["rescuer"]?.toString() == userName) {
-          setState(() {
-            _username = data["uid"] ?? "Unknown";
-            _latitude = data["lat"]?.toDouble() ?? 0.0;
-            _longitude = data["lon"]?.toDouble() ?? 0.0;
-            _updateLorawanMarker(LatLng(_latitude, _longitude), _username);
-            _rebuildMarkersList();
-            _responseMessage = 'Location from module received.';
-          });
-        }
-      } else {
-        setState(() {
-          _responseMessage =
-              'Failed to receive message. Status: ${response.statusCode}';
-        });
-      }
-    } on SocketException catch (_) {
-      setState(() {
-        _responseMessage = 'Error: No connection to ESP32 module.';
-      });
-    } catch (e) {
-      setState(() {
-        _responseMessage = 'Error fetching module location: $e';
-      });
-    }
-  }
+  //       // Check if the reported ID matches the current user's name
+  //       if (data["rescuer"]?.toString() == userName) {
+  //         setState(() {
+  //           _username = data["uid"] ?? "Unknown";
+  //           _latitude = data["lat"]?.toDouble() ?? 0.0;
+  //           _longitude = data["lon"]?.toDouble() ?? 0.0;
+  //           _updateLorawanMarker(LatLng(_latitude, _longitude), _username);
+  //           _rebuildMarkersList();
+  //           _responseMessage = 'Location from module received.';
+  //         });
+  //       }
+  //     } else {
+  //       setState(() {
+  //         _responseMessage =
+  //             'Failed to receive message. Status: ${response.statusCode}';
+  //       });
+  //     }
+  //   } on SocketException catch (_) {
+  //     setState(() {
+  //       _responseMessage = 'Error: No connection to ESP32 module.';
+  //     });
+  //   } catch (e) {
+  //     setState(() {
+  //       _responseMessage = 'Error fetching module location: $e';
+  //     });
+  //   }
+  // }
 
   /// Updates the Lorawan module marker.
-  void _updateLorawanMarker(LatLng location, String name) {
-    _lorawanMarker = Marker(
+  void _updateLorawanMarkersFromProvider() {
+  final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
+  final messages = loraProvider.messages; // List<Map<String,dynamic>>
+
+  _lorawanMarker = null; // Clear old single marker if any
+
+  // Remove previous Lorawan markers from the map
+  _markers.removeWhere((marker) => marker.key?.toString().startsWith('lorawan_') ?? false);
+
+  for (int i = 0; i < messages.length; i++) {
+    final msg = messages[i];
+    final lat = msg['lat'] as double? ?? 0.0;
+    final lon = msg['lon'] as double? ?? 0.0;
+    final id = msg['id']?.toString() ?? 'Unknown';
+    final rescuer = msg['rescuer']?.toString() ?? 'Unknown';
+
+    final marker = Marker(
+      key: ValueKey('lorawan_$id$i'),
       width: 100.0,
       height: 100.0,
-      point: location,
+      point: LatLng(lat, lon),
       child: _buildMarkerChild(
-          name,
-          Colors.red,
-          const AssetImage(
-              'assets/images/dgfdfdsdsf2.jpg') // Use asset or specific Lorawan icon
-          ),
+        '$rescuer ($id)',
+        Colors.red,
+        const AssetImage('assets/images/dgfdfdsdsf2.jpg'),
+      ),
     );
+
+    _markers.add(marker);
   }
+
+  _rebuildMarkersList(); // Refresh map display
+}
 
   /// Refreshes all non-streamed data (Lorawan location).
   void _refresh() async {
-    await _fetchLocationFromModule();
+   _updateLorawanMarkersFromProvider();
     _rebuildMarkersList();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

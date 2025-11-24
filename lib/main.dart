@@ -1,3 +1,4 @@
+import 'package:cc206_bahanap/features/lora_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -28,10 +29,14 @@ void main() async {
   await Firebase.initializeApp(
       name: "dev project", options: DefaultFirebaseOptions.currentPlatform);
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => CustomImageProvider(),
-      child: const MyApp(),
-    ),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => LoRaProvider()..startPolling()),
+        ChangeNotifierProvider(create: (_) => CustomImageProvider()),
+    // ... other providers
+        ],
+        child: const MyApp(),
+      )
   );
 }
 

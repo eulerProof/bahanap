@@ -362,7 +362,9 @@ class _SignUpPageState extends State<SignUpPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 70,)
+                    const SizedBox(
+                      height: 70,
+                    )
                   ],
                 ),
               ),
@@ -373,23 +375,49 @@ class _SignUpPageState extends State<SignUpPage> {
         floatingActionButton: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
             child: SizedBox(
-              height: 50,
-              width: MediaQuery.sizeOf(context).width,
-              child: FloatingActionButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, 'sos');
-                },
-                backgroundColor: const Color.fromARGB(255, 239, 66, 63),
-                child: const Text(
-                  'SOS',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 25,
-                      fontFamily: 'SfPro',
-                      color: Colors.white,
-                      letterSpacing: 3),
-                ),
-              ),
-            )));
+                height: 50,
+                width: MediaQuery.sizeOf(context).width,
+                child: FloatingActionButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, 'sos');
+                  },
+                  backgroundColor: Colors
+                      .transparent, // set to transparent so gradient shows
+                  elevation: 6,
+                  shape: const CircleBorder(),
+                  child: Container(
+                    alignment: Alignment.center,
+                    height: 77,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const RadialGradient(
+                        colors: [
+                          Color(0xFFFF6666), // lighter red
+                          Color(0xFFB70000), // dark red
+                        ],
+                        center: Alignment.center,
+                        radius: 0.8,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Text(
+                      'SOS',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 23,
+                        fontFamily: 'SfPro',
+                        color: Colors.white,
+                        letterSpacing: 3,
+                      ),
+                    ),
+                  ),
+                ))));
   }
 }

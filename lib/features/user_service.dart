@@ -28,4 +28,8 @@ class UserService {
     return "No user found";
   }
 }
+
+void clear() {
+    username = null;  // <-- CLEAR during logout
+  }
 }

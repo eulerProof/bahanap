@@ -4,36 +4,48 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:http/http.dart' as http;
-
+import 'user_service.dart'; 
 class LoRaProvider extends ChangeNotifier {
   final List<Map<String, dynamic>> _messages = [];
   Map<String, dynamic>? _lastRawMessage;
   Timer? _pollingTimer;
 
   List<Map<String, dynamic>> get messages => List.unmodifiable(_messages);
+  String get currentRescuer => UserService().username ?? ""; // <--- store the user's username
 
   /// Adds a new message safely
-  void addMessage(Map<String, dynamic> message) {
-    final newMessageJson = jsonEncode(message);
+  bool _isFetching = false;
 
-    if (_lastRawMessage != null &&
-        jsonEncode(_lastRawMessage) == newMessageJson) return;
-
-    _lastRawMessage = message;
-
-    final msgId = message["id"];
-    message["id"] = msgId;
-
-    final index = _messages.indexWhere((m) => m["id"] == msgId);
-    if (index == -1) {
-      _messages.add(message);
-    } else {
-      _messages[index] = message;
+void startPolling({int seconds = 3}) {
+  _pollingTimer?.cancel();
+  _pollingTimer = Timer.periodic(Duration(seconds: seconds), (_) async {
+    if (!_isFetching) {
+      _isFetching = true;
+      await fetchLocationFromModule();
+      _isFetching = false;
     }
+  });
+}
 
-    notifyListeners();
+void addMessage(Map<String, dynamic> message) {
+  // Only accept messages for this rescuer
+  if (message["rescuer"] != currentRescuer) {
+    return; 
+  }
+  // Prevent duplicates
+  if (_lastRawMessage != null &&
+      _lastRawMessage!["id"] == message["id"] &&
+      (_lastRawMessage!["lat"] - message["lat"]).abs() < 0.00001 &&
+      (_lastRawMessage!["lon"] - message["lon"]).abs() < 0.00001 &&
+      _lastRawMessage!["rescuer"] == message["rescuer"]) {
+    return;
   }
 
+  _lastRawMessage = message;
+
+  _messages.add(message);
+  notifyListeners();
+}
   void clear() {
     _messages.clear();
     _lastRawMessage = null;
@@ -41,12 +53,7 @@ class LoRaProvider extends ChangeNotifier {
   }
 
   /// ------------------- 🟢 Polling logic -------------------
-  void startPolling({int seconds = 3}) {
-    _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(Duration(seconds: seconds), (_) {
-      fetchLocationFromModule();
-    });
-  }
+  
 
   void stopPolling() {
     _pollingTimer?.cancel();

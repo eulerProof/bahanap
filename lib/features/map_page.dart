@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:cc206_bahanap/features/user_role.dart';
 
+import 'custom_bottom_nav.dart';
 import 'package:cc206_bahanap/features/image_provider.dart';
 import 'package:cc206_bahanap/features/lora_provider.dart';
 import 'package:flutter/material.dart';
@@ -27,7 +29,7 @@ class MapPage extends StatefulWidget {
 class _MapPageState extends State<MapPage> {
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
-
+  final List<Marker> _loraMarkers = [];
   // Use the mapStore initialized in main.dart
   final _tileProvider = FMTCTileProvider(
     stores: const {'mapStore': BrowseStoreStrategy.readUpdateCreate},
@@ -63,9 +65,12 @@ class _MapPageState extends State<MapPage> {
       loraProvider.addListener(() {
         _updateLorawanMarkersFromProvider();
       });
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+        _updateLorawanMarkersFromProvider();
+      });
     // Location and Mapping
-    _fetchCurrentLocationAndStartUpdates();
-    _listenToOtherUserLocations();
+    // _fetchCurrentLocationAndStartUpdates();
+    // _listenToOtherUserLocations();
     // _fetchLocationFromModule();
   }
 
@@ -81,6 +86,83 @@ class _MapPageState extends State<MapPage> {
   // --- CORE LOGIC ---
 
   /// Combines the initial location fetch and starts periodic updates.
+  /// 
+  Widget _buildCitizenSOSButton() {
+  return SizedBox(
+    height: 90,
+    width: 90,
+    child: FloatingActionButton(
+      onPressed: () {
+        Navigator.pushNamed(context, 'sos');
+      },
+      backgroundColor: Colors.transparent,
+      elevation: 6,
+      shape: const CircleBorder(),
+      child: Container(
+        alignment: Alignment.center,
+        height: 77,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const RadialGradient(
+            colors: [
+              Color.fromARGB(255, 255, 145, 145),
+              Color(0xFFB70000),
+            ],
+            radius: 0.5,
+          ),
+        ),
+        child: const Text(
+          'SOS',
+          style: TextStyle(
+            fontSize: 23,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            letterSpacing: 3,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+Widget _buildRescuerAlertButton() {
+  return FloatingActionButton(
+    backgroundColor: Colors.blue,
+    child: const Icon(Icons.warning_amber, size: 32, color: Colors.white),
+    onPressed: () {
+      _showAssignedSOSDialog();
+    },
+  );
+}
+void _showAssignedSOSDialog() {
+  final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
+
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text("Assigned SOS Alerts"),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: loraProvider.messages.length,
+          itemBuilder: (context, index) {
+            final msg = loraProvider.messages[index];
+            return ListTile(
+              title: Text("ID: ${msg['id']}"),
+              subtitle: Text("Lat: ${msg['lat']}, Lon: ${msg['lon']}"),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Close"),
+        )
+      ],
+    ),
+  );
+}
   void _fetchCurrentLocationAndStartUpdates() async {
     await _fetchCurrentLocation(); // Initial fetch
 
@@ -153,7 +235,7 @@ class _MapPageState extends State<MapPage> {
     setState(() {
       _markers.clear();
       if (_userMarker != null) _markers.add(_userMarker!);
-      if (_lorawanMarker != null) _markers.add(_lorawanMarker!);
+      _markers.addAll(_loraMarkers);      // <-- FIX
       _markers.addAll(_peerMarkers);
     });
   }
@@ -304,12 +386,9 @@ class _MapPageState extends State<MapPage> {
   /// Updates the Lorawan module marker.
   void _updateLorawanMarkersFromProvider() {
   final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
-  final messages = loraProvider.messages; // List<Map<String,dynamic>>
+  final messages = loraProvider.messages;
 
-  _lorawanMarker = null; // Clear old single marker if any
-
-  // Remove previous Lorawan markers from the map
-  _markers.removeWhere((marker) => marker.key?.toString().startsWith('lorawan_') ?? false);
+  _loraMarkers.clear();  // Clear ONCE
 
   for (int i = 0; i < messages.length; i++) {
     final msg = messages[i];
@@ -318,24 +397,23 @@ class _MapPageState extends State<MapPage> {
     final id = msg['id']?.toString() ?? 'Unknown';
     final rescuer = msg['rescuer']?.toString() ?? 'Unknown';
 
-    final marker = Marker(
-      key: ValueKey('lorawan_$id$i'),
-      width: 100.0,
-      height: 100.0,
-      point: LatLng(lat, lon),
-      child: _buildMarkerChild(
-        '$rescuer ($id)',
-        Colors.red,
-        const AssetImage('assets/images/dgfdfdsdsf2.jpg'),
+    _loraMarkers.add(
+      Marker(
+        key: ValueKey('lorawan_${id}_$i'),
+        width: 100.0,
+        height: 100.0,
+        point: LatLng(lat, lon),
+        child: _buildMarkerChild(
+          '$rescuer ($id)',
+          Colors.red,
+          const AssetImage('assets/images/dgfdfdsdsf2.jpg'),
+        ),
       ),
     );
-
-    _markers.add(marker);
   }
 
-  _rebuildMarkersList(); // Refresh map display
+  _rebuildMarkersList();
 }
-
   /// Refreshes all non-streamed data (Lorawan location).
   void _refresh() async {
    _updateLorawanMarkersFromProvider();
@@ -444,6 +522,7 @@ class _MapPageState extends State<MapPage> {
 
   @override
   Widget build(BuildContext context) {
+    final role = Provider.of<UserRoleProvider>(context).role;
     return SafeArea(
       child: Scaffold(
         body: Stack(
@@ -634,94 +713,30 @@ class _MapPageState extends State<MapPage> {
             ),
           ],
         ),
-
+        
         // --- FLOATING ACTION BUTTON (SOS) ---
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        floatingActionButton: SizedBox(
-          height: 90,
-          width: 90,
-          child: FloatingActionButton(
-              onPressed: () {
-                Navigator.pushNamed(context, 'sos');
-              },
-              backgroundColor: const Color(0xffff0000),
-              shape: const CircleBorder(),
-              child: Container(
-                alignment: Alignment.center,
-                child: const Text(
-                  'SOS',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 23,
-                      fontFamily: 'SfPro',
-                      color: Colors.white,
-                      letterSpacing: 3),
-                ),
-                height: 77,
-                decoration: const BoxDecoration(
-                    shape: BoxShape.circle, color: Color(0xffB70000)),
-              )),
-        ),
-
-        // --- BOTTOM NAVIGATION BAR ---
-        bottomNavigationBar: BottomAppBar(
-          color: const Color(0xff32ade6),
-          shape: const CircularNotchedRectangle(),
-          notchMargin: 6.0,
-          child: Container(
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: SizedBox(
-              height: 50, // Standard height for better layout
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.home),
-                      iconSize: 30,
-                      color: Colors.white,
-                      onPressed: () {
-                        Navigator.pushNamed(context, 'dash');
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.map),
-                      color: Colors.white,
-                      onPressed: () {
-                        if (ModalRoute.of(context)?.settings.name != 'map') {
-                          Navigator.pushNamed(context, 'map');
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 40), // Space for FAB
-                    IconButton(
-                      icon: const Icon(Icons.notifications),
-                      iconSize: 30,
-                      color: Colors.white,
-                      onPressed: () {
-                        Navigator.pushNamed(context, 'notifications');
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.person),
-                      iconSize: 30,
-                      color: Colors.white,
-                      onPressed: () {
-                        Navigator.pushNamed(context, 'profile');
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+        floatingActionButton: role == "Citizen"
+          ? _buildCitizenSOSButton()
+          : _buildRescuerAlertButton(),
+        bottomNavigationBar: CustomBottomNav(
+          currentIndex: 1, // profile page index
+          onTap: (index) {
+            switch (index) {
+              case 0:
+                Navigator.pushNamed(context, 'dash');
+                break;
+              case 1:
+                Navigator.pushNamed(context, 'map');
+                break;
+              case 2:
+                Navigator.pushNamed(context, 'notifications');
+                break;
+              case 3:
+                Navigator.pushNamed(context, 'profile');
+                break;
+            }
+          },
         ),
       ),
     );

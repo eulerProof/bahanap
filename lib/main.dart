@@ -1,4 +1,6 @@
 import 'package:cc206_bahanap/features/lora_provider.dart';
+import 'package:cc206_bahanap/features/user_role.dart';
+import 'package:cc206_bahanap/features/user_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -28,9 +30,11 @@ void main() async {
   await FMTCStore('mapStore').manage.create();
   await Firebase.initializeApp(
       name: "dev project", options: DefaultFirebaseOptions.currentPlatform);
+      await UserService().fetchUsername();
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => UserRoleProvider()..loadUserRole()),
         ChangeNotifierProvider(create: (_) => LoRaProvider()..startPolling()),
         ChangeNotifierProvider(create: (_) => CustomImageProvider()),
     // ... other providers

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'image_provider.dart';
 import 'package:provider/provider.dart';
+import 'custom_bottom_nav.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -60,21 +61,13 @@ class _ProfilePageState extends State<ProfilePage> {
                       return Column(
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Text('Account',
                                   style: TextStyle(
                                       fontSize: 26,
                                       fontFamily: 'SfPro',
                                       color: Colors.black)),
-                              IconButton.outlined(
-                                padding: EdgeInsets.all(9),
-                                icon: const Icon(Icons.settings,
-                                    color: Colors.black),
-                                onPressed: () {
-                                  Navigator.pushNamed(context, 'settings');
-                                },
-                              ),
                             ],
                           ),
                           Container(
@@ -316,86 +309,69 @@ class _ProfilePageState extends State<ProfilePage> {
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 0),
         child: SizedBox(
-          height: 90,
-          width: 90,
-          child: FloatingActionButton(
-            onPressed: () {
-              Navigator.pushNamed(context, 'sos');
-            },
-            backgroundColor: const Color.fromARGB(255, 239, 66, 63),
-            shape: const CircleBorder(),
-            child: const Text(
-              'SOS',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 25,
-                  fontFamily: 'SfPro',
-                  color: Colors.white,
-                  letterSpacing: 3),
-            ),
-          ),
-        ),
-      ),
-      bottomNavigationBar: BottomAppBar(
-        color: const Color(0xff32ade6),
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 6.0,
-        child: Container(
-          decoration: const BoxDecoration(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-          ),
-          child: SizedBox(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.home),
-                    color: Colors.white,
-                    onPressed: () {
-                      if (ModalRoute.of(context)?.settings.name != 'dash') {
-                        Navigator.pushNamed(context, 'dash');
-                      }
-                    },
+            height: 90,
+            width: 90,
+            child: FloatingActionButton(
+              onPressed: () {
+                Navigator.pushNamed(context, 'sos');
+              },
+              backgroundColor:
+                  Colors.transparent, // set to transparent so gradient shows
+              elevation: 6,
+              shape: const CircleBorder(),
+              child: Container(
+                alignment: Alignment.center,
+                height: 77,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const RadialGradient(
+                    colors: [
+                      Color.fromARGB(255, 255, 145, 145), // lighter red
+                      Color(0xFFB70000), // dark red
+                    ],
+                    center: Alignment.center,
+                    radius: 0.5,
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.map),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Text(
+                  'SOS',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 23,
+                    fontFamily: 'SfPro',
                     color: Colors.white,
-                    onPressed: () {
-                      Navigator.pushNamed(context, 'map');
-                    },
+                    letterSpacing: 3,
                   ),
-                  const SizedBox(width: 10),
-                  IconButton(
-                    icon: const Icon(Icons.notifications),
-                    iconSize: 30,
-                    color: Colors.white,
-                    onPressed: () {
-                      if (ModalRoute.of(context)?.settings.name !=
-                          'notifications') {
-                        Navigator.pushNamed(context, 'notifications');
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.person),
-                    iconSize: 30,
-                    color: Colors.white,
-                    onPressed: () {
-                      if (ModalRoute.of(context)?.settings.name != 'profile') {
-                        Navigator.pushNamed(context, 'profile');
-                      }
-                    },
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-        ),
+            )),
+      ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: 3, // profile page index
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              Navigator.pushNamed(context, 'dash');
+              break;
+            case 1:
+              Navigator.pushNamed(context, 'map');
+              break;
+            case 2:
+              Navigator.pushNamed(context, 'notifications');
+              break;
+            case 3:
+              Navigator.pushNamed(context, 'profile');
+              break;
+          }
+        },
       ),
     );
   }

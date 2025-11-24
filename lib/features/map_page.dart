@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
+import 'custom_bottom_nav.dart';
 import 'package:cc206_bahanap/features/image_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -614,90 +614,68 @@ class _MapPageState extends State<MapPage> {
         // --- FLOATING ACTION BUTTON (SOS) ---
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         floatingActionButton: SizedBox(
-          height: 90,
-          width: 90,
-          child: FloatingActionButton(
+            height: 90,
+            width: 90,
+            child: FloatingActionButton(
               onPressed: () {
                 Navigator.pushNamed(context, 'sos');
               },
-              backgroundColor: const Color(0xffff0000),
+              backgroundColor:
+                  Colors.transparent, // set to transparent so gradient shows
+              elevation: 6,
               shape: const CircleBorder(),
               child: Container(
                 alignment: Alignment.center,
+                height: 77,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const RadialGradient(
+                    colors: [
+                      Color.fromARGB(255, 255, 145, 145), // lighter red
+                      Color(0xFFB70000), // dark red
+                    ],
+                    center: Alignment.center,
+                    radius: 0.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
                 child: const Text(
                   'SOS',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 23,
-                      fontFamily: 'SfPro',
-                      color: Colors.white,
-                      letterSpacing: 3),
-                ),
-                height: 77,
-                decoration: const BoxDecoration(
-                    shape: BoxShape.circle, color: Color(0xffB70000)),
-              )),
-        ),
-
-        // --- BOTTOM NAVIGATION BAR ---
-        bottomNavigationBar: BottomAppBar(
-          color: const Color(0xff32ade6),
-          shape: const CircularNotchedRectangle(),
-          notchMargin: 6.0,
-          child: Container(
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: SizedBox(
-              height: 50, // Standard height for better layout
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.home),
-                      iconSize: 30,
-                      color: Colors.white,
-                      onPressed: () {
-                        Navigator.pushNamed(context, 'dash');
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.map),
-                      color: Colors.white,
-                      onPressed: () {
-                        if (ModalRoute.of(context)?.settings.name != 'map') {
-                          Navigator.pushNamed(context, 'map');
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 40), // Space for FAB
-                    IconButton(
-                      icon: const Icon(Icons.notifications),
-                      iconSize: 30,
-                      color: Colors.white,
-                      onPressed: () {
-                        Navigator.pushNamed(context, 'notifications');
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.person),
-                      iconSize: 30,
-                      color: Colors.white,
-                      onPressed: () {
-                        Navigator.pushNamed(context, 'profile');
-                      },
-                    ),
-                  ],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 23,
+                    fontFamily: 'SfPro',
+                    color: Colors.white,
+                    letterSpacing: 3,
+                  ),
                 ),
               ),
-            ),
-          ),
+            )),
+        bottomNavigationBar: CustomBottomNav(
+          currentIndex: 1, // profile page index
+          onTap: (index) {
+            switch (index) {
+              case 0:
+                Navigator.pushNamed(context, 'dash');
+                break;
+              case 1:
+                Navigator.pushNamed(context, 'map');
+                break;
+              case 2:
+                Navigator.pushNamed(context, 'notifications');
+                break;
+              case 3:
+                Navigator.pushNamed(context, 'profile');
+                break;
+            }
+          },
         ),
       ),
     );

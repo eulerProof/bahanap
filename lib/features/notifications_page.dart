@@ -10,6 +10,8 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:network_info_plus/network_info_plus.dart';
+import 'custom_bottom_nav.dart';
+
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
 
@@ -20,12 +22,11 @@ class NotificationsPage extends StatefulWidget {
 class NotificationsPageState extends State<NotificationsPage> {
   Timer? _timer;
   String userName = "";
-   List<Map<String, dynamic>> receivedJSON = [];
-   List<Map<String, dynamic>> get assignedSOS {
-  return receivedJSON
-      .where((msg) => msg['id'] == userName)
-      .toList();
-}
+  List<Map<String, dynamic>> receivedJSON = [];
+  List<Map<String, dynamic>> get assignedSOS {
+    return receivedJSON.where((msg) => msg['id'] == userName).toList();
+  }
+
   final List<String> items = List.generate(3, (index) => "Item $index");
   @override
   void initState() {
@@ -35,14 +36,15 @@ class NotificationsPageState extends State<NotificationsPage> {
   }
 
   @override
-   void dispose() {
+  void dispose() {
     super.dispose();
   }
-  
+
   void _startReceivingMessages() {
     _fetchMessage(); // Fetch once immediately
     _timer = Timer.periodic(const Duration(seconds: 5), (_) => _fetchMessage());
   }
+
   Future<void> _fetchMessage() async {
     try {
       final wifiName = await NetworkInfo().getWifiName();
@@ -60,7 +62,6 @@ class NotificationsPageState extends State<NotificationsPage> {
       } else if (wifiName.contains("Bahanap_Node_B")) {
         esp32IP = "192.168.4.2";
       } else {
-       
         return;
       }
       final response = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
@@ -85,6 +86,7 @@ class NotificationsPageState extends State<NotificationsPage> {
       debugPrint("Error fetching message: $e");
     }
   }
+
   Future<void> _fetchUserName() async {
     final String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (uid.isNotEmpty) {
@@ -188,7 +190,6 @@ class NotificationsPageState extends State<NotificationsPage> {
               //       )
               // ),
 
-              
               Padding(
                 padding: const EdgeInsets.all(10),
                 child: SizedBox(
@@ -335,84 +336,69 @@ class NotificationsPageState extends State<NotificationsPage> {
         floatingActionButton: Padding(
           padding: const EdgeInsets.only(bottom: 0),
           child: SizedBox(
-            height: 90,
-            width: 90,
-            child: FloatingActionButton(
-              onPressed: () {
-                Navigator.pushNamed(context, 'sos');
-              },
-              backgroundColor: const Color.fromARGB(255, 239, 66, 63),
-              shape: const CircleBorder(),
-              child: const Text(
-                'SOS',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 25,
-                    fontFamily: 'SfPro',
-                    color: Colors.white,
-                    letterSpacing: 3),
-              ),
-            ),
-          ),
-        ),
-        bottomNavigationBar: BottomAppBar(
-          color: const Color(0xff32ade6),
-          shape: const CircularNotchedRectangle(),
-          notchMargin: 6.0,
-          child: Container(
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: SizedBox(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.home),
-                      color: Colors.white,
-                      onPressed: () {
-                        if (ModalRoute.of(context)?.settings.name != 'dash') {
-                          Navigator.pushNamed(context, 'dash');
-                        }
-                      },
+              height: 90,
+              width: 90,
+              child: FloatingActionButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, 'sos');
+                },
+                backgroundColor:
+                    Colors.transparent, // set to transparent so gradient shows
+                elevation: 6,
+                shape: const CircleBorder(),
+                child: Container(
+                  alignment: Alignment.center,
+                  height: 77,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const RadialGradient(
+                      colors: [
+                        Color.fromARGB(255, 255, 145, 145), // lighter red
+                        Color(0xFFB70000), // dark red
+                      ],
+                      center: Alignment.center,
+                      radius: 0.5,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.map),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'SOS',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 23,
+                      fontFamily: 'SfPro',
                       color: Colors.white,
-                      onPressed: () {
-                        Navigator.pushNamed(context, 'map');
-                      },
+                      letterSpacing: 3,
                     ),
-                    const SizedBox(width: 10),
-                    IconButton(
-                      icon: const Icon(Icons.notifications),
-                      iconSize: 30,
-                      color: Colors.white,
-                      onPressed: () {
-                        if (ModalRoute.of(context)?.settings.name !=
-                            'notifications') {
-                          Navigator.pushNamed(context, 'notifications');
-                        }
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.person),
-                      iconSize: 30,
-                      color: Colors.white,
-                      onPressed: () {
-                        Navigator.pushNamed(context, 'profile');
-                      },
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ),
+              )),
+        ),
+        bottomNavigationBar: CustomBottomNav(
+          currentIndex: 2, // profile page index
+          onTap: (index) {
+            switch (index) {
+              case 0:
+                Navigator.pushNamed(context, 'dash');
+                break;
+              case 1:
+                Navigator.pushNamed(context, 'map');
+                break;
+              case 2:
+                Navigator.pushNamed(context, 'notifications');
+                break;
+              case 3:
+                Navigator.pushNamed(context, 'profile');
+                break;
+            }
+          },
         ),
       ),
     );

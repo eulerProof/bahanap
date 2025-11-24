@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:network_info_plus/network_info_plus.dart';
+import 'custom_bottom_nav.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -28,17 +29,14 @@ class _DashboardPageState extends State<DashboardPage> {
   String _responseMessage = '';
   String _responseMessage2 = '';
   String _coordinates = '';
-   String userName = "";
-   
-  
+  String userName = "";
+
   @override
   void dispose() {
     _textController.dispose();
 
     super.dispose();
   }
-
-  
 
   @override
   void initState() {
@@ -48,8 +46,8 @@ class _DashboardPageState extends State<DashboardPage> {
     _fetchUserName();
     fetchGuidelines();
   }
+
   Widget buildCategorySection(String title, List<String> items) {
-    
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -61,7 +59,9 @@ class _DashboardPageState extends State<DashboardPage> {
           children: [
             Text(title,
                 style: const TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white)),
             const SizedBox(height: 10),
             if (items.isEmpty)
               const Text(
@@ -72,13 +72,15 @@ class _DashboardPageState extends State<DashboardPage> {
               ...items.map((item) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Text("• $item",
-                        style: const TextStyle(fontSize: 16, color:  Colors.white)),
+                        style:
+                            const TextStyle(fontSize: 16, color: Colors.white)),
                   )),
           ],
         ),
       ),
     );
   }
+
   Future<void> fetchGuidelines() async {
     final provider = Provider.of<CustomImageProvider>(context, listen: false);
     try {
@@ -113,7 +115,6 @@ class _DashboardPageState extends State<DashboardPage> {
         } else if (data["category"] == "Post-disaster") {
           provider.addPostDisaster(data["content"]);
         }
-        
       } else {
         print("Failed to fetch guidelines: ${response.statusCode}");
       }
@@ -121,55 +122,58 @@ class _DashboardPageState extends State<DashboardPage> {
       print("Error fetching guidelines: $e");
     }
   }
+
   void _showGuidelines() async {
     final provider = Provider.of<CustomImageProvider>(context, listen: false);
-      await fetchGuidelines();
-      showGeneralDialog(
+    await fetchGuidelines();
+    showGeneralDialog(
         context: context,
         barrierDismissible: true,
         barrierLabel: 'FullScreenDialog',
         barrierColor: Colors.black54, // dim background
         pageBuilder: (context, animation1, animation2) {
           return Scaffold(
-      body: Container(
-        padding: const EdgeInsets.all(16),
-        color: const Color(0xff002F4E),
-        child: ListView(
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
+            body: Container(
+              padding: const EdgeInsets.all(16),
+              color: const Color(0xff002F4E),
+              child: ListView(
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Disaster Preparedness Guidelines',
+                    style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'SfPro',
+                        color: Colors.white),
+                    textAlign: TextAlign.start,
+                  ),
+                  const SizedBox(height: 20),
+                  buildCategorySection(
+                      "Pre-Disaster Guidelines", provider.preDisaster),
+                  const SizedBox(height: 20),
+                  buildCategorySection(
+                      "During Disaster Guidelines", provider.duringDisaster),
+                  const SizedBox(height: 20),
+                  buildCategorySection(
+                      "Post-Disaster Guidelines", provider.postDisaster),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Disaster Preparedness Guidelines',
-              style: TextStyle(
-                
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'SfPro',
-              color: Colors.white),
-              textAlign: TextAlign.start,
-            ),
-            const SizedBox(height: 20),
-            buildCategorySection("Pre-Disaster Guidelines", provider.preDisaster),
-            const SizedBox(height: 20),
-            buildCategorySection("During Disaster Guidelines", provider.duringDisaster),
-            const SizedBox(height: 20),
-            buildCategorySection("Post-Disaster Guidelines", provider.postDisaster),
-          ],
-        ),
-      ),
-    );
+          );
+        });
   }
-      );
-  }
-   Future<void> _fetchUserName() async {
+
+  Future<void> _fetchUserName() async {
     final String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (uid.isNotEmpty) {
       try {
@@ -188,10 +192,12 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     }
   }
-Future<void> _initializeUser() async {
+
+  Future<void> _initializeUser() async {
     await UserService().fetchUsername();
     print("Username stored: ${UserService().username}");
   }
+
   Future<void> uploadLocation(double lat, double lon) async {
     final String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (uid.isEmpty) {
@@ -210,6 +216,7 @@ Future<void> _initializeUser() async {
       print("Error updating location: $e");
     }
   }
+
   Future<void> _signOut() async {
     await FirebaseAuth.instance.signOut();
     Navigator.pushReplacementNamed(context, 'welcome');
@@ -295,7 +302,8 @@ Future<void> _initializeUser() async {
       }
       final message = {
         "text": _textController.text,
-        "coordinates": "Placeholder. This is merely for testing. May all go well."
+        "coordinates":
+            "Placeholder. This is merely for testing. May all go well."
       };
       final response = await http.post(
         Uri.parse('http://$esp32IP/message'),
@@ -341,34 +349,34 @@ Future<void> _initializeUser() async {
       final response = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
 
       setState(() {
-      if (response.statusCode == 200) {
-        try {
-          final data = jsonDecode(response.body);
-          
-          if (data is Map) {
-            // Safely extract both fields
-            _responseMessage = data["id"]?.toString() ?? "No text found";
+        if (response.statusCode == 200) {
+          try {
+            final data = jsonDecode(response.body);
 
-            if (data["id"]?.toString() == userName) {
-              _responseMessage2 = "You are the rescuer.";
+            if (data is Map) {
+              // Safely extract both fields
+              _responseMessage = data["id"]?.toString() ?? "No text found";
+
+              if (data["id"]?.toString() == userName) {
+                _responseMessage2 = "You are the rescuer.";
+              } else {
+                _responseMessage2 = "You are NOT the rescuer";
+              }
+              // _coordinates = data['coordinates']?.toString() ?? "No coordinates";
             } else {
-              _responseMessage2 = "You are NOT the rescuer";
+              _responseMessage = "Invalid JSON format";
+              _coordinates = "";
             }
-            // _coordinates = data['coordinates']?.toString() ?? "No coordinates";
-          } else {
-            _responseMessage = "Invalid JSON format";
+          } catch (e) {
+            _responseMessage = "Error parsing JSON: $e";
             _coordinates = "";
           }
-        } catch (e) {
-          _responseMessage = "Error parsing JSON: $e";
+        } else {
+          _responseMessage =
+              'Failed to receive message. Status: ${response.statusCode}';
           _coordinates = "";
         }
-      } else {
-        _responseMessage =
-            'Failed to receive message. Status: ${response.statusCode}';
-        _coordinates = "";
-      }
-    });
+      });
     } catch (e) {
       setState(() {
         _responseMessage = 'Error: $e';
@@ -395,7 +403,6 @@ Future<void> _initializeUser() async {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          
                           const SizedBox(width: 48),
                           const Expanded(
                             child: Center(
@@ -403,7 +410,7 @@ Future<void> _initializeUser() async {
                                 'BaHanap',
                                 key: ValueKey('bahanapText'),
                                 style: TextStyle(
-                                  fontSize: 35,
+                                  fontSize: 40,
                                   fontFamily: 'Gilroy',
                                   color: Color(0XFF32ade6),
                                   letterSpacing: -3.0,
@@ -421,8 +428,7 @@ Future<void> _initializeUser() async {
                         ],
                       ),
                     )),
-                    const Divider(),
-               
+                const Divider(),
                 const SizedBox(
                   height: 20,
                 ),
@@ -441,68 +447,60 @@ Future<void> _initializeUser() async {
                       // ---- Water Level ----
                       Padding(
                         padding: EdgeInsets.all(8),
-                        child: 
-                         Container(
-                            padding: EdgeInsets.fromLTRB(0,10,0,0),
-                            decoration: BoxDecoration(
+                        child: Container(
+                          padding: EdgeInsets.fromLTRB(0, 10, 0, 0),
+                          decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(23),
                               gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xff2B96C7),
-                                  Color(0xff064400),
-                                
-                                  
-                                ],
-                                begin: FractionalOffset(0.0, 0.0),
-                                end: FractionalOffset(0.0, 1.0)
-                              )
-                            ),
-                            child: const Column(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
-                                SizedBox(height: 6),
-                                Text(
-                                  'Water Level',
+                                  colors: [
+                                    Color(0xff2B96C7),
+                                    Color(0xff064400),
+                                  ],
+                                  begin: FractionalOffset(0.0, 0.0),
+                                  end: FractionalOffset(0.0, 1.0))),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              SizedBox(height: 6),
+                              Text(
+                                'Water Level',
+                                style: TextStyle(
+                                    letterSpacing: 0.5,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'SfPro',
+                                    shadows: [
+                                      Shadow(
+                                        offset: Offset(2.0, 3.0),
+                                        blurRadius: 6.0,
+                                        color: Colors.black54,
+                                      ),
+                                    ],
+                                    color: Colors.white),
+                                textAlign: TextAlign.center,
+                              ),
+                              SizedBox(height: 22),
+                              Center(
+                                child: Text(
+                                  "Low",
                                   style: TextStyle(
-                                      letterSpacing: 0.5,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'SfPro',
-                                      shadows: [
-                                        Shadow(
-                                          offset: Offset(2.0, 3.0),
-                                          blurRadius: 6.0,
-                                          color: Colors.black54,
-                                        ),
-                                      ],
-                                      color: Colors.white),
-                                  textAlign: TextAlign.center,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Gilroy',
+                                    color: Colors.lightGreen,
+                                    shadows: [
+                                      Shadow(
+                                        offset: Offset.zero,
+                                        blurRadius: 10.0,
+                                        color: Colors.green,
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                SizedBox(height: 22),
-                                 Center(
-                                  child: Text("Low",
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Gilroy',
-                                      color: Colors.lightGreen,
-                                      shadows: [
-                                        Shadow(
-                                          offset: Offset.zero,
-                                          blurRadius: 10.0,
-                                          color: Colors.green,
-                                          
-                                        ),
-                                      ],
-                                    ),
-                                    ),
-                                 )
-                                  
-                                
-                              ],
-                            ),
+                              )
+                            ],
                           ),
-                          
+                        ),
                       ),
 
                       // ---- Flood Probability ----
@@ -510,18 +508,16 @@ Future<void> _initializeUser() async {
                         padding: const EdgeInsets.all(8),
                         child: GestureDetector(
                           child: Container(
-                            padding: const EdgeInsets.fromLTRB(0,10,0,0),
+                            padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(23),
-                              gradient: const LinearGradient(
-                                colors: [
-                                Color(0xff7F7F7F),
-                                  Color(0xff232323),
-                                ],
-                                begin: FractionalOffset(0.0, 0.0),
-                                end: FractionalOffset(0.0, 1.0)
-                              )
-                            ),
+                                borderRadius: BorderRadius.circular(23),
+                                gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xff7F7F7F),
+                                      Color(0xff232323),
+                                    ],
+                                    begin: FractionalOffset(0.0, 0.0),
+                                    end: FractionalOffset(0.0, 1.0))),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.start,
                               crossAxisAlignment: CrossAxisAlignment.center,
@@ -544,15 +540,14 @@ Future<void> _initializeUser() async {
                                     color: Colors.white,
                                   ),
                                   textAlign: TextAlign.center,
-                                ),SizedBox(height: 22),
+                                ),
+                                SizedBox(height: 22),
                                 const Text(
                                   'Minimal Risk',
                                   style: TextStyle(
                                     letterSpacing: 0.5,
                                     fontSize: 15,
-                                    
                                     fontFamily: 'SfPro',
-                                    
                                     color: Colors.white,
                                   ),
                                   textAlign: TextAlign.center,
@@ -591,19 +586,16 @@ Future<void> _initializeUser() async {
                         padding: EdgeInsets.all(8),
                         child: GestureDetector(
                           child: Container(
-                            padding: EdgeInsets.fromLTRB(20,10,0,15),
+                            padding: EdgeInsets.fromLTRB(20, 10, 0, 15),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(23),
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xff0899F8),
-                                Color(0xff055A92),
-                                  
-                                ],
-                                begin: FractionalOffset(0.0, 0.0),
-                                end: FractionalOffset(0.0, 1.0)
-                              )
-                            ),
+                                borderRadius: BorderRadius.circular(23),
+                                gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xff0899F8),
+                                      Color(0xff055A92),
+                                    ],
+                                    begin: FractionalOffset(0.0, 0.0),
+                                    end: FractionalOffset(0.0, 1.0))),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.start,
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -627,22 +619,22 @@ Future<void> _initializeUser() async {
                                   textAlign: TextAlign.start,
                                 ),
                                 Spacer(),
-                                const Text("View",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
+                                const Text(
+                                  "View",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
                                       letterSpacing: 0.5,
                                       fontSize: 16,
-                                      
                                       fontFamily: 'SfPro',
                                       decoration: TextDecoration.underline,
                                       decorationColor: Colors.white,
-                                      color: Colors.white), textAlign: TextAlign.left,)
-                                
+                                      color: Colors.white),
+                                  textAlign: TextAlign.left,
+                                )
                               ],
                             ),
                           ),
                           onTap: () {
-                            
                             _showGuidelines();
                           },
                         ),
@@ -653,18 +645,16 @@ Future<void> _initializeUser() async {
                         padding: EdgeInsets.all(8),
                         child: GestureDetector(
                           child: Container(
-                            padding: EdgeInsets.fromLTRB(20,10,0,15),
+                            padding: EdgeInsets.fromLTRB(20, 10, 0, 15),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(23),
-                              gradient: const LinearGradient(
-                                colors: [
-                                Color(0xff055A92),
-                                  Color(0xff0899F8),
-                                ],
-                                begin: FractionalOffset(0.0, 0.0),
-                                end: FractionalOffset(0.0, 1.0)
-                              )
-                            ),
+                                borderRadius: BorderRadius.circular(23),
+                                gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xff055A92),
+                                      Color(0xff0899F8),
+                                    ],
+                                    begin: FractionalOffset(0.0, 0.0),
+                                    end: FractionalOffset(0.0, 1.0))),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.start,
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,15 +678,18 @@ Future<void> _initializeUser() async {
                                   textAlign: TextAlign.start,
                                 ),
                                 Spacer(),
-                                const Text("View",
-                                style: TextStyle(
+                                const Text(
+                                  "View",
+                                  style: TextStyle(
                                       letterSpacing: 0.5,
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                       fontFamily: 'SfPro',
                                       decoration: TextDecoration.underline,
                                       decorationColor: Colors.white,
-                                      color: Colors.white),textAlign: TextAlign.left,)
+                                      color: Colors.white),
+                                  textAlign: TextAlign.left,
+                                )
                               ],
                             ),
                           ),
@@ -729,91 +722,69 @@ Future<void> _initializeUser() async {
         floatingActionButton: Padding(
           padding: const EdgeInsets.only(bottom: 0),
           child: SizedBox(
-            height: 90,
-            width: 90,
-            child: FloatingActionButton(
-              onPressed: () {
-                Navigator.pushNamed(context, 'sos');
-              },
-              backgroundColor: const Color(0xffff0000),
-              shape: const CircleBorder(),
-              child: Container(
-                alignment: Alignment.center,
-                child: const Text(
-                'SOS',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 23,
-                    fontFamily: 'SfPro',
-                    color: Colors.white,
-                    letterSpacing: 3),
-              ),
-              
-              height: 77,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xffB70000)
-              ),
-              )
-            ),
-          ),
-        ),
-        bottomNavigationBar: BottomAppBar(
-          color: const Color(0xff32ade6),
-          shape: const CircularNotchedRectangle(),
-          notchMargin: 6.0,
-          child: Container(
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: SizedBox(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.home),
-                      color: Colors.white,
-                      onPressed: () {
-                        if (ModalRoute.of(context)?.settings.name != 'dash') {
-                          Navigator.pushNamed(context, 'dash');
-                        }
-                      },
+              height: 90,
+              width: 90,
+              child: FloatingActionButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, 'sos');
+                },
+                backgroundColor:
+                    Colors.transparent, // set to transparent so gradient shows
+                elevation: 6,
+                shape: const CircleBorder(),
+                child: Container(
+                  alignment: Alignment.center,
+                  height: 77,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const RadialGradient(
+                      colors: [
+                        Color.fromARGB(255, 255, 145, 145), // lighter red
+                        Color(0xFFB70000), // dark red
+                      ],
+                      center: Alignment.center,
+                      radius: 0.5,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.map),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'SOS',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 23,
+                      fontFamily: 'SfPro',
                       color: Colors.white,
-                      onPressed: () {
-                        Navigator.pushNamed(context, 'map');
-                      },
+                      letterSpacing: 3,
                     ),
-                    const SizedBox(width: 10),
-                    IconButton(
-                      icon: const Icon(Icons.notifications),
-                      iconSize: 30,
-                      color: Colors.white,
-                      onPressed: () {
-                        Navigator.pushNamed(context, 'notifications');
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.person),
-                      iconSize: 30,
-                      color: Colors.white,
-                      onPressed: () {
-                        Navigator.pushNamed(context, 'profile');
-                      },
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ),
+              )),
+        ),
+        bottomNavigationBar: CustomBottomNav(
+          currentIndex: 0, // profile page index
+          onTap: (index) {
+            switch (index) {
+              case 0:
+                Navigator.pushNamed(context, 'dash');
+                break;
+              case 1:
+                Navigator.pushNamed(context, 'map');
+                break;
+              case 2:
+                Navigator.pushNamed(context, 'notifications');
+                break;
+              case 3:
+                Navigator.pushNamed(context, 'profile');
+                break;
+            }
+          },
         ),
       ),
     );

@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:cc206_bahanap/features/user_role.dart';
 import 'package:flutter/material.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'user_service.dart'; 
 class LoRaProvider extends ChangeNotifier {
   final List<Map<String, dynamic>> _messages = [];
@@ -12,10 +14,10 @@ class LoRaProvider extends ChangeNotifier {
 
   List<Map<String, dynamic>> get messages => List.unmodifiable(_messages);
   String get currentRescuer => UserService().username ?? ""; // <--- store the user's username
-
+  String get currentRescuerId => UserService().rescuerId ?? "";
   /// Adds a new message safely
   bool _isFetching = false;
-
+  
 void startPolling({int seconds = 3}) {
   _pollingTimer?.cancel();
   _pollingTimer = Timer.periodic(Duration(seconds: seconds), (_) async {
@@ -29,7 +31,7 @@ void startPolling({int seconds = 3}) {
 
 void addMessage(Map<String, dynamic> message) {
   // Only accept messages for this rescuer
-  if (message["rescuer"] != currentRescuer) {
+  if (message["rescuer"] != currentRescuerId) {
     return; 
   }
   // Prevent duplicates
@@ -62,7 +64,7 @@ void addMessage(Map<String, dynamic> message) {
   Future<void> fetchLocationFromModule() async {
     try {
       final wifiName = await NetworkInfo().getWifiName();
-
+      
       if (wifiName == null ||
           (!wifiName.contains("Bahanap_Node_A") &&
               !wifiName.contains("Bahanap_Node_B"))) {
@@ -77,10 +79,10 @@ void addMessage(Map<String, dynamic> message) {
       }
 
       final response = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
-
+      
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-
+        
         // Convert to normalized structure
         addMessage({
           "id": data["uid"] ?? "unknown",

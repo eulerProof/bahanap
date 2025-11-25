@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 class UserRoleProvider extends ChangeNotifier {
   String _role = "";
   String get role => _role;
-
+  String _id = "";
+  String get id => _id;
   Future<void> loadUserRole() async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? "";
     if (uid.isEmpty) return;
@@ -17,6 +18,11 @@ class UserRoleProvider extends ChangeNotifier {
 
     if (doc.exists) {
       _role = doc["role"];
+      if (_role == "Rescuer") {
+        _id = doc["rescuerId"];
+      } else {
+        _id = doc["uid"];
+      }
       notifyListeners();
     }
   }

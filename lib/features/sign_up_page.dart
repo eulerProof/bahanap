@@ -21,7 +21,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-
+  String? selectedRole;
   void _showTermsDialog() {
     showDialog(
       context: context,
@@ -210,6 +210,29 @@ class _SignUpPageState extends State<SignUpPage> {
                               color: Color(0xFFAFAFAF), fontSize: 15)),
                     ),
                     const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                    value: selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: "Select Role",
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: "Rescuee",
+                        child: Text("Rescuee"),
+                      ),
+                      DropdownMenuItem(
+                        value: "Rescuer",
+                        child: Text("Rescuer"),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        selectedRole = value;
+                      });
+                    },
+                  ),
+                    const SizedBox(height: 10),
                     const Text(
                       'Password',
                       style: TextStyle(
@@ -305,7 +328,12 @@ class _SignUpPageState extends State<SignUpPage> {
                             );
 
                             String uid = credential.user!.uid;
-
+                            String rescuerId = "";
+                            if (selectedRole == "Rescuer") {
+                              rescuerId = uid;
+                            } else {
+                              rescuerId = "";
+                            }
                             await _firestore
                                 .collection('profiles')
                                 .doc(uid)
@@ -314,7 +342,8 @@ class _SignUpPageState extends State<SignUpPage> {
                               'email': _emailController.text,
                               'Name': _nameController.text,
                               'PhoneNumber': _phoneController.text,
-                              'role': "Citizen",
+                              'role': selectedRole,
+                              'rescuerId': rescuerId,
                             });
 
                             _showDialog(context, 'Sign-Up Successful',

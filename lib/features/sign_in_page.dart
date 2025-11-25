@@ -1,8 +1,10 @@
 import 'package:cc206_bahanap/features/dashboard_page.dart';
 import 'package:cc206_bahanap/features/sign_up_page.dart';
 import 'package:cc206_bahanap/features/forgot_password.dart';
+import 'package:cc206_bahanap/features/user_role.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -198,7 +200,7 @@ class _SignInPageState extends State<SignInPage> {
                               email: _emailController.text.trim(),
                               password: _passwordController.text.trim(),
                             );
-
+                            await Provider.of<UserRoleProvider>(context, listen: false).loadUserRole();
                             _showDialog(context, 'Sign-In Successful',
                                 'Welcome back, ${_emailController.text}!');
                             Future.delayed(const Duration(seconds: 1), () {

@@ -7,7 +7,7 @@ class UserService {
   UserService._internal();
 
   String? username;
-
+  String? rescuerId;
   Future<String> fetchUsername() async {
   final user = FirebaseAuth.instance.currentUser;
 
@@ -22,6 +22,7 @@ class UserService {
         .get();
 
     username = snapshot.data()?['Name'];
+    rescuerId = snapshot.data()?['rescuerId'];
     return username ?? "No user found";
   } catch (e) {
     print("Failed to fetch username: $e");

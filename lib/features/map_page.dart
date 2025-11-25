@@ -386,10 +386,11 @@ void _showAssignedSOSDialog() {
   /// Updates the Lorawan module marker.
   void _updateLorawanMarkersFromProvider() {
   final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
+  final rescuerId = Provider.of<UserRoleProvider>(context, listen: false).id;
   final messages = loraProvider.messages;
 
   _loraMarkers.clear();  // Clear ONCE
-
+  _markers.clear();
   for (int i = 0; i < messages.length; i++) {
     final msg = messages[i];
     final lat = msg['lat'] as double? ?? 0.0;
@@ -397,6 +398,7 @@ void _showAssignedSOSDialog() {
     final id = msg['id']?.toString() ?? 'Unknown';
     final rescuer = msg['rescuer']?.toString() ?? 'Unknown';
 
+    if (rescuer != rescuerId) continue;
     _loraMarkers.add(
       Marker(
         key: ValueKey('lorawan_${id}_$i'),
@@ -404,7 +406,7 @@ void _showAssignedSOSDialog() {
         height: 100.0,
         point: LatLng(lat, lon),
         child: _buildMarkerChild(
-          '$rescuer ($id)',
+          id,
           Colors.red,
           const AssetImage('assets/images/dgfdfdsdsf2.jpg'),
         ),
@@ -716,7 +718,7 @@ void _showAssignedSOSDialog() {
         
         // --- FLOATING ACTION BUTTON (SOS) ---
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        floatingActionButton: role == "Citizen"
+        floatingActionButton: role == "Rescuee"
           ? _buildCitizenSOSButton()
           : _buildRescuerAlertButton(),
         bottomNavigationBar: CustomBottomNav(

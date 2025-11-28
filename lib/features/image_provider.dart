@@ -37,4 +37,10 @@ class CustomImageProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+  void clearAll() {
+    preDisaster.clear();
+    duringDisaster.clear();
+    postDisaster.clear();
+    notifyListeners();
+  }
 }

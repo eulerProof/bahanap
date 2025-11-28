@@ -62,6 +62,18 @@
       "languageVersion": "3.4"
     },
     {
+      "name": "connectivity_plus",
+      "rootUri": "file:///C:/Users/joshu/AppData/Local/Pub/Cache/hosted/pub.dev/connectivity_plus-7.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.2"
+    },
+    {
+      "name": "connectivity_plus_platform_interface",
+      "rootUri": "file:///C:/Users/joshu/AppData/Local/Pub/Cache/hosted/pub.dev/connectivity_plus_platform_interface-2.0.1",
+      "packageUri": "lib/",
+      "languageVersion": "2.18"
+    },
+    {
       "name": "cross_file",
       "rootUri": "file:///C:/Users/joshu/AppData/Local/Pub/Cache/hosted/pub.dev/cross_file-0.3.4+2",
       "packageUri": "lib/",
@@ -716,7 +728,7 @@
       "languageVersion": "3.5"
     }
   ],
-  "generated": "2025-11-24T15:09:45.456896Z",
+  "generated": "2025-11-28T00:31:05.237845Z",
   "generator": "pub",
   "generatorVersion": "3.7.2",
   "flutterRoot": "file:///C:/Users/joshu/OneDrive/Documents/Academics%20Related/flutter",

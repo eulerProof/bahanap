@@ -41,6 +41,7 @@ class _MapPageState extends State<MapPage> {
   Marker? _lorawanMarker; // Lorawan module marker
   final List<Marker> _peerMarkers = []; // Other users' markers
   final List<Marker> _markers = []; // Combined list for FlutterMap
+  final List<Marker> _evacMarkers = [];
 
   StreamSubscription<Position>? _positionStreamSubscription;
   StreamSubscription<QuerySnapshot>? _peerLocationsSubscription;
@@ -58,7 +59,7 @@ class _MapPageState extends State<MapPage> {
   void initState() {
     super.initState();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-
+    _initializeEvacuationMarkers();
     // Auth and Data Fetching
     _fetchUserName();
     final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
@@ -69,7 +70,7 @@ class _MapPageState extends State<MapPage> {
         _updateLorawanMarkersFromProvider();
       });
     // Location and Mapping
-    // _fetchCurrentLocationAndStartUpdates();
+    _fetchCurrentLocationAndStartUpdates();
     // _listenToOtherUserLocations();
     // _fetchLocationFromModule();
   }
@@ -89,40 +90,50 @@ class _MapPageState extends State<MapPage> {
   /// 
   Widget _buildCitizenSOSButton() {
   return SizedBox(
-    height: 90,
-    width: 90,
-    child: FloatingActionButton(
-      onPressed: () {
-        Navigator.pushNamed(context, 'sos');
-      },
-      backgroundColor: Colors.transparent,
-      elevation: 6,
-      shape: const CircleBorder(),
-      child: Container(
-        alignment: Alignment.center,
-        height: 77,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const RadialGradient(
-            colors: [
-              Color.fromARGB(255, 255, 145, 145),
-              Color(0xFFB70000),
-            ],
-            radius: 0.5,
-          ),
-        ),
-        child: const Text(
-          'SOS',
-          style: TextStyle(
-            fontSize: 23,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: 3,
-          ),
-        ),
-      ),
-    ),
-  );
+              height: 90,
+              width: 90,
+              child: FloatingActionButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, 'sos');
+                },
+                backgroundColor:
+                    Colors.transparent, // set to transparent so gradient shows
+                elevation: 6,
+                shape: const CircleBorder(),
+                child: Container(
+                  alignment: Alignment.center,
+                  height: 77,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const RadialGradient(
+                      colors: [
+                        Color.fromARGB(255, 255, 145, 145), // lighter red
+                        Color(0xFFB70000), // dark red
+                      ],
+                      center: Alignment.center,
+                      radius: 0.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'SOS',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 23,
+                      fontFamily: 'SfPro',
+                      color: Colors.white,
+                      letterSpacing: 3,
+                    ),
+                  ),
+                ),
+              ));
 }
 Widget _buildRescuerAlertButton() {
   return FloatingActionButton(
@@ -137,31 +148,110 @@ void _showAssignedSOSDialog() {
   final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
 
   showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text("Assigned SOS Alerts"),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: ListView.builder(
-          shrinkWrap: true,
-          itemCount: loraProvider.messages.length,
-          itemBuilder: (context, index) {
-            final msg = loraProvider.messages[index];
-            return ListTile(
-              title: Text("ID: ${msg['id']}"),
-              subtitle: Text("Lat: ${msg['lat']}, Lon: ${msg['lon']}"),
-            );
-          },
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Assigned SOS Alerts", textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: MediaQuery.of(context).size.height * 0.5,
+          child: loraProvider.messages.isEmpty ?
+          const Center(
+            child: Text("No SOS Alerts Received", style: TextStyle(fontSize: 15,),),
+          )
+
+          : ListView.builder(
+            shrinkWrap: true,
+            itemCount: loraProvider.messages.length,
+            itemBuilder: (context, index) {
+              final msg = loraProvider.messages[index];
+                return ListTile(
+                title: Text("ID: ${msg['id']}", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w100)),
+                subtitle: Text("Lat: ${msg['lat']}, Lon: ${msg['lon']}", style: const TextStyle(fontSize: 15)),
+              );
+              
+            },
+          )
         ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0XFF2294C9),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              "Close",
+              style: TextStyle(fontSize: 16, color: Colors.white),
+            ),
+          )
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Close"),
-        )
-      ],
-    ),
-  );
+    );
+}
+
+  void _initializeEvacuationMarkers() async {
+  try {
+    _evacMarkers.clear(); // clear old evacuation markers only
+    final snapshot = await FirebaseFirestore.instance
+        .collection('evacuation_markers')
+        .get();
+
+    for (var i = 0; i < snapshot.docs.length; i++) {
+      final doc = snapshot.docs[i];
+      final data = doc.data();
+      final lat = data['lat']?.toDouble();
+      final lon = data['lon']?.toDouble();
+      final name = data['name'] ?? "Evacuation Center";
+
+      if (lat == null || lon == null) continue;
+
+      _evacMarkers.add(
+        Marker(
+          key: ValueKey("evac_${lat}_${lon}_$i"),
+          width: 80,
+          height: 80,
+          point: LatLng(lat, lon),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.green, width: 3.0),
+                  color: Colors.white,
+                ),
+                child: const Center(
+                  child: Icon(Icons.house, size: 20, color: Colors.green),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                name,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10.0,
+                  fontFamily: 'SfPro',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    _rebuildMarkersList(); // merge updated evac markers
+  } catch (e) {
+    print("Error initializing evacuation markers: $e");
+  }
 }
   void _fetchCurrentLocationAndStartUpdates() async {
     await _fetchCurrentLocation(); // Initial fetch
@@ -237,6 +327,7 @@ void _showAssignedSOSDialog() {
       if (_userMarker != null) _markers.add(_userMarker!);
       _markers.addAll(_loraMarkers);      // <-- FIX
       _markers.addAll(_peerMarkers);
+      _markers.addAll(_evacMarkers);
     });
   }
 
@@ -325,7 +416,7 @@ void _showAssignedSOSDialog() {
       width: 100.0,
       height: 100.0,
       point: location,
-      child: _buildMarkerChild(userName, Colors.blue, markerImage),
+      child: _buildMarkerChild("You", Colors.blue, markerImage),
     );
   }
 
@@ -390,7 +481,6 @@ void _showAssignedSOSDialog() {
   final messages = loraProvider.messages;
 
   _loraMarkers.clear();  // Clear ONCE
-  _markers.clear();
   for (int i = 0; i < messages.length; i++) {
     final msg = messages[i];
     final lat = msg['lat'] as double? ?? 0.0;
@@ -718,9 +808,9 @@ void _showAssignedSOSDialog() {
         
         // --- FLOATING ACTION BUTTON (SOS) ---
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        floatingActionButton: role == "Rescuee"
-          ? _buildCitizenSOSButton()
-          : _buildRescuerAlertButton(),
+        floatingActionButton: role == "Rescuer"
+          ? _buildRescuerAlertButton()
+          : _buildCitizenSOSButton(),
         bottomNavigationBar: CustomBottomNav(
           currentIndex: 1, // profile page index
           onTap: (index) {

@@ -1,3 +1,5 @@
+import 'package:cc206_bahanap/features/lora_provider.dart';
+import 'package:cc206_bahanap/features/user_role.dart';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 import 'dart:convert';
@@ -11,6 +13,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'custom_bottom_nav.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -44,7 +47,115 @@ class _DashboardPageState extends State<DashboardPage> {
     _initializeUser();
     _fetchLocation();
     _fetchUserName();
-    fetchGuidelines();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      fetchGuidelines();
+    });
+  }
+  Widget _buildCitizenSOSButton() {
+  return SizedBox(
+              height: 90,
+              width: 90,
+              child: FloatingActionButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, 'sos');
+                },
+                backgroundColor:
+                    Colors.transparent, // set to transparent so gradient shows
+                elevation: 6,
+                shape: const CircleBorder(),
+                child: Container(
+                  alignment: Alignment.center,
+                  height: 77,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const RadialGradient(
+                      colors: [
+                        Color.fromARGB(255, 255, 145, 145), // lighter red
+                        Color(0xFFB70000), // dark red
+                      ],
+                      center: Alignment.center,
+                      radius: 0.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'SOS',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 23,
+                      fontFamily: 'SfPro',
+                      color: Colors.white,
+                      letterSpacing: 3,
+                    ),
+                  ),
+                ),
+              ));
+  }
+  Widget _buildRescuerAlertButton() {
+    return FloatingActionButton(
+      backgroundColor: Colors.blue,
+      child: const Icon(Icons.warning_amber, size: 32, color: Colors.white),
+      onPressed: () {
+        _showAssignedSOSDialog();
+      },
+    );
+  }
+  void _showAssignedSOSDialog() {
+    final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Assigned SOS Alerts", textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: MediaQuery.of(context).size.height * 0.5,
+          child: loraProvider.messages.isEmpty ?
+          const Center(
+            child: Text("No SOS Alerts Received", style: TextStyle(fontSize: 15,),),
+          )
+
+          : ListView.builder(
+            shrinkWrap: true,
+            itemCount: loraProvider.messages.length,
+            itemBuilder: (context, index) {
+              final msg = loraProvider.messages[index];
+                return ListTile(
+                title: Text("ID: ${msg['id']}", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w100)),
+                subtitle: Text("Lat: ${msg['lat']}, Lon: ${msg['lon']}", style: const TextStyle(fontSize: 15)),
+              );
+              
+            },
+          )
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0XFF2294C9),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              "Close",
+              style: TextStyle(fontSize: 16, color: Colors.white),
+            ),
+          )
+        ],
+      ),
+    );
   }
 
   Widget buildCategorySection(String title, List<String> items) {
@@ -82,46 +193,103 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> fetchGuidelines() async {
-    final provider = Provider.of<CustomImageProvider>(context, listen: false);
-    try {
-      final wifiName = await NetworkInfo().getWifiName();
+  final provider = Provider.of<CustomImageProvider>(context, listen: false);
 
-      if (wifiName == null) {
-        setState(() {
-          _responseMessage = "Not connected to any WiFi network.";
-        });
-        return;
-      }
+  try {
+    // -----------------------------
+    // 1. Check Internet Availability
+    // -----------------------------
 
-      String? esp32IP;
-      if (wifiName.contains("Bahanap_Node_A")) {
-        esp32IP = "192.168.4.1";
-      } else if (wifiName.contains("Bahanap_Node_B")) {
-        esp32IP = "192.168.4.2";
-      } else {
-        setState(() {
-          _responseMessage = "Not connected to a valid ESP32 node WiFi.";
-        });
-        return;
-      }
-      final response = await http.get(Uri.parse('http://$esp32IP/guidelines'));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data["category"] == "Pre-disaster") {
-          provider.addPreDisaster(data["content"]);
-        } else if (data["category"] == "During disaster") {
-          provider.addDuringDisaster(data["content"]);
-        } else if (data["category"] == "Post-disaster") {
-          provider.addPostDisaster(data["content"]);
+    // ---------------------------------------------
+    // 2. If Internet → Load Guidelines from Firestore
+    // ---------------------------------------------
+    
+      try {
+        final base = FirebaseFirestore.instance
+            .collection("disaster_guidelines")
+            .doc("guidelines");
+
+        // Clear data so UI updates fresh
+        provider.clearAll();
+
+        // ---- PRE-DISASTER ----
+        final preSnap = await base.collection("pre_disaster").get();
+        for (var doc in preSnap.docs) {
+          final data = doc.data();
+          if (data["content"] != null) {
+            provider.addPreDisaster(data["content"]);
+          }
         }
-      } else {
-        print("Failed to fetch guidelines: ${response.statusCode}");
+
+        // ---- DURING-DISASTER ----
+        final duringSnap = await base.collection("during_disaster").get();
+        for (var doc in duringSnap.docs) {
+          final data = doc.data();
+          if (data["content"] != null) {
+            provider.addDuringDisaster(data["content"]);
+          }
+        }
+
+        // ---- POST-DISASTER ----
+        final postSnap = await base.collection("post_disaster").get();
+        for (var doc in postSnap.docs) {
+          final data = doc.data();
+          if (data["content"] != null) {
+            provider.addPostDisaster(data["content"]);
+          }
+        }
+
+        print("SUCCESS: Loaded disaster guidelines from Firestore.");
+        return;
+      } catch (e) {
+        print("ERROR: Firestore fetch failed. Falling back to ESP32. $e");
       }
-    } catch (e) {
-      print("Error fetching guidelines: $e");
+    
+
+    // ---------------------------------------------
+    // 3. No Internet → Attempt Local ESP32 Fallback
+    // ---------------------------------------------
+    final wifiName = await NetworkInfo().getWifiName();
+
+    if (wifiName == null) {
+      setState(() {
+        _responseMessage = "No WiFi connection detected.";
+      });
+      return;
     }
+
+    String? esp32IP;
+    if (wifiName.contains("Bahanap_Node_A")) {
+      esp32IP = "192.168.4.1";
+    } else if (wifiName.contains("Bahanap_Node_B")) {
+      esp32IP = "192.168.4.2";
+    } else {
+      setState(() {
+        _responseMessage = "Not connected to a valid ESP32 node WiFi.";
+      });
+      return;
+    }
+
+    final response = await http.get(Uri.parse('http://$esp32IP/guidelines'));
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      if (data["category"] == "Pre-disaster") {
+        provider.addPreDisaster(data["content"]);
+      } else if (data["category"] == "During disaster") {
+        provider.addDuringDisaster(data["content"]);
+      } else if (data["category"] == "Post-disaster") {
+        provider.addPostDisaster(data["content"]);
+      }
+    } else {
+      print("ESP32 fetch failed: ${response.statusCode}");
+    }
+  } catch (e) {
+    print("ERROR fetching guidelines: $e");
   }
+}
 
   void _showGuidelines() async {
     final provider = Provider.of<CustomImageProvider>(context, listen: false);
@@ -387,7 +555,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<CustomImageProvider>(context);
+    final role = Provider.of<UserRoleProvider>(context).role;
     return SafeArea(
       child: Scaffold(
         body: Container(
@@ -447,70 +615,173 @@ class _DashboardPageState extends State<DashboardPage> {
                     children: [
                       // ---- Water Level ----
                       Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Container(
-                          padding: EdgeInsets.fromLTRB(0, 10, 0, 0),
-                          decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(23),
-                              gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xff2B96C7),
-                                    Color(0xff064400),
-                                  ],
-                                  begin: FractionalOffset(0.0, 0.0),
-                                  end: FractionalOffset(0.0, 1.0))),
-                          child: const Column(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              SizedBox(height: 6),
-                              Text(
-                                'Water Level',
-                                style: TextStyle(
-                                    letterSpacing: 0.5,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    fontFamily: 'SfPro',
-                                    shadows: [
-                                      Shadow(
-                                        offset: Offset(2.0, 3.0),
-                                        blurRadius: 6.0,
-                                        color: Colors.black54,
-                                      ),
-                                    ],
-                                    color: Colors.white),
-                                textAlign: TextAlign.center,
-                              ),
-                              SizedBox(height: 22),
-                              Center(
-                                child: Text(
-                                  "Low",
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    fontFamily: 'Gilroy',
-                                    color: Colors.lightGreen,
-                                    shadows: [
-                                      Shadow(
-                                        offset: Offset.zero,
-                                        blurRadius: 10.0,
-                                        color: Colors.green,
-                                      ),
-                                    ],
-                                  ),
+                        padding: const EdgeInsets.all(8),
+                        child: StreamBuilder<DocumentSnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('disaster_guidelines')
+                              .doc('water_level')
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              // Show loading indicator while fetching
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(23),
+                                  color: Colors.grey.shade300,
                                 ),
-                              )
-                            ],
-                          ),
+                                child: const Center(child: CircularProgressIndicator()),
+                              );
+                            }
+                            
+                            if (!snapshot.hasData || !snapshot.data!.exists) {
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(23),
+                                  color: Colors.grey.shade300,
+                                ),
+                                child: const Center(child: Text('No data available')),
+                              );
+                            }
+
+                            // Get the water level
+                            final level = snapshot.data!['level'] as String? ?? "Low";
+
+                            // Determine colors based on level
+                            Color lowerColor;
+                            Color textColor;
+                            switch (level) {
+                              case "High":
+                                textColor = Colors.red.shade900;
+                                lowerColor = Color.fromARGB(255, 167, 5, 5);
+                                break;
+                              case "Middle":
+                                textColor = const Color.fromARGB(255, 195, 241, 27);
+                                lowerColor = Color.fromARGB(255, 240, 253, 50);
+                                break;
+                              case "Low":
+                              default:
+                                textColor = Colors.lightGreen;
+                                lowerColor = Color(0xff064400);
+                                break;
+                            }
+
+                            return Container(
+                              padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(23),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    const Color(0xff2B96C7),
+                                    lowerColor,
+                                  ],
+                                  begin: const FractionalOffset(0.0, 0.0),
+                                  end: const FractionalOffset(0.0, 1.0)),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    'Water Level',
+                                    style: TextStyle(
+                                      letterSpacing: 0.5,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'SfPro',
+                                      shadows: [
+                                        Shadow(
+                                          offset: Offset(2.0, 3.0),
+                                          blurRadius: 6.0,
+                                          color: Colors.black54,
+                                        ),
+                                      ],
+                                      color: Colors.white,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 22),
+                                  Center(
+                                    child: Text(
+                                      level,
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Gilroy',
+                                        color: textColor,
+                                        shadows: [
+                                          Shadow(
+                                            offset: Offset.zero,
+                                            blurRadius: 10.0,
+                                            color: textColor.withOpacity(0.6),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
                       ),
-
                       // ---- Flood Probability ----
                       Padding(
                         padding: const EdgeInsets.all(8),
-                        child: GestureDetector(
-                          child: Container(
-                            padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
-                            decoration: BoxDecoration(
+                        child: StreamBuilder<DocumentSnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('disaster_guidelines')
+                              .doc('water_level')
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              // Show loading indicator while fetching
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(23),
+                                  color: Colors.grey.shade300,
+                                ),
+                                child: const Center(child: CircularProgressIndicator()),
+                              );
+                            }
+                            
+                            if (!snapshot.hasData || !snapshot.data!.exists) {
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(23),
+                                  color: Colors.grey.shade300,
+                                ),
+                                child: const Center(child: Text('No data available')),
+                              );
+                            }
+
+                            // Get the water level
+                            final level = snapshot.data!['level'] as String? ?? "Low";
+
+                            // Determine colors based on level
+                            String riskLevel;
+                          
+                            switch (level) {
+                              case "High":
+                                riskLevel = "High Risk. Please evacuate as soon as possible.";
+                                break;
+                              case "Middle":
+                                riskLevel = "Medium Risk. Please stay prepared.";
+                                break;
+                              case "Low":
+                              default:
+                                riskLevel = "Minimal Risk";
+                                break;
+                            }
+
+                            return Container(
+                              padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
+                              decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(23),
                                 gradient: const LinearGradient(
                                     colors: [
@@ -518,12 +789,13 @@ class _DashboardPageState extends State<DashboardPage> {
                                       Color(0xff232323),
                                     ],
                                     begin: FractionalOffset(0.0, 0.0),
-                                    end: FractionalOffset(0.0, 1.0))),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                SizedBox(height: 6),
+                                    end: FractionalOffset(0.0, 1.0)),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 6),
                                 const Text(
                                   'Risk Level',
                                   style: TextStyle(
@@ -543,9 +815,9 @@ class _DashboardPageState extends State<DashboardPage> {
                                   textAlign: TextAlign.center,
                                 ),
                                 SizedBox(height: 22),
-                                const Text(
-                                  'Minimal Risk',
-                                  style: TextStyle(
+                                Text(
+                                  riskLevel,
+                                  style: const TextStyle(
                                     letterSpacing: 0.5,
                                     fontSize: 15,
                                     fontFamily: 'SfPro',
@@ -554,34 +826,12 @@ class _DashboardPageState extends State<DashboardPage> {
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 8),
-                                // Image.asset(
-                                //   'assets/floodprob.png',
-                                //   color: Colors.white,
-                                //   fit: BoxFit.cover,
-                                //   width: double.infinity,
-                                //   height: 120,
-                                // ),
-                              ],
-                            ),
-                          ),
-                          onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text("Flood Probability"),
-                                content: Text(
-                                    "This is where the flood probability info would be."),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: Text("Ok"))
                                 ],
                               ),
                             );
                           },
                         ),
                       ),
-
                       // ---- Evacuation ----
                       Padding(
                         padding: EdgeInsets.all(8),
@@ -640,77 +890,6 @@ class _DashboardPageState extends State<DashboardPage> {
                           },
                         ),
                       ),
-
-                      // ---- Alert Warnings ----
-                      Padding(
-                        padding: EdgeInsets.all(8),
-                        child: GestureDetector(
-                          child: Container(
-                            padding: EdgeInsets.fromLTRB(20, 10, 0, 15),
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(23),
-                                gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xff055A92),
-                                      Color(0xff0899F8),
-                                    ],
-                                    begin: FractionalOffset(0.0, 0.0),
-                                    end: FractionalOffset(0.0, 1.0))),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 6),
-                                const Text(
-                                  'Evacuation Centers',
-                                  style: TextStyle(
-                                      letterSpacing: 0.5,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'SfPro',
-                                      shadows: [
-                                        Shadow(
-                                          offset: Offset(2.0, 3.0),
-                                          blurRadius: 6.0,
-                                          color: Colors.black54,
-                                        ),
-                                      ],
-                                      color: Colors.white),
-                                  textAlign: TextAlign.start,
-                                ),
-                                Spacer(),
-                                const Text(
-                                  "View",
-                                  style: TextStyle(
-                                      letterSpacing: 0.5,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'SfPro',
-                                      decoration: TextDecoration.underline,
-                                      decorationColor: Colors.white,
-                                      color: Colors.white),
-                                  textAlign: TextAlign.left,
-                                )
-                              ],
-                            ),
-                          ),
-                          onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text("Alert Warnings"),
-                                content: Text(
-                                    "This is where the alert warning info would be."),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: Text("Ok"))
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -720,54 +899,9 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         backgroundColor: const Color(0xff32ade6),
-        floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: 0),
-          child: SizedBox(
-              height: 90,
-              width: 90,
-              child: FloatingActionButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, 'sos');
-                },
-                backgroundColor:
-                    Colors.transparent, // set to transparent so gradient shows
-                elevation: 6,
-                shape: const CircleBorder(),
-                child: Container(
-                  alignment: Alignment.center,
-                  height: 77,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const RadialGradient(
-                      colors: [
-                        Color.fromARGB(255, 255, 145, 145), // lighter red
-                        Color(0xFFB70000), // dark red
-                      ],
-                      center: Alignment.center,
-                      radius: 0.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 6,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: const Text(
-                    'SOS',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 23,
-                      fontFamily: 'SfPro',
-                      color: Colors.white,
-                      letterSpacing: 3,
-                    ),
-                  ),
-                ),
-              )),
-        ),
+        floatingActionButton: role == "Rescuer"
+          ? _buildRescuerAlertButton()
+          : _buildCitizenSOSButton(),
         bottomNavigationBar: CustomBottomNav(
           currentIndex: 0, // profile page index
           onTap: (index) {

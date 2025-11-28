@@ -1,3 +1,5 @@
+import 'package:cc206_bahanap/features/lora_provider.dart';
+import 'package:cc206_bahanap/features/user_role.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -37,9 +39,115 @@ class _ProfilePageState extends State<ProfilePage> {
   void _removeImage() {
     Provider.of<CustomImageProvider>(context, listen: false).clearImage();
   }
+  Widget _buildCitizenSOSButton() {
+  return SizedBox(
+              height: 90,
+              width: 90,
+              child: FloatingActionButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, 'sos');
+                },
+                backgroundColor:
+                    Colors.transparent, // set to transparent so gradient shows
+                elevation: 6,
+                shape: const CircleBorder(),
+                child: Container(
+                  alignment: Alignment.center,
+                  height: 77,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const RadialGradient(
+                      colors: [
+                        Color.fromARGB(255, 255, 145, 145), // lighter red
+                        Color(0xFFB70000), // dark red
+                      ],
+                      center: Alignment.center,
+                      radius: 0.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'SOS',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 23,
+                      fontFamily: 'SfPro',
+                      color: Colors.white,
+                      letterSpacing: 3,
+                    ),
+                  ),
+                ),
+              ));
+  }
+  Widget _buildRescuerAlertButton() {
+    return FloatingActionButton(
+      backgroundColor: Colors.blue,
+      child: const Icon(Icons.warning_amber, size: 32, color: Colors.white),
+      onPressed: () {
+        _showAssignedSOSDialog();
+      },
+    );
+  }
+  void _showAssignedSOSDialog() {
+    final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
 
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Assigned SOS Alerts", textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: MediaQuery.of(context).size.height * 0.5,
+          child: loraProvider.messages.isEmpty ?
+          const Center(
+            child: Text("No SOS Alerts Received", style: TextStyle(fontSize: 15,),),
+          )
+
+          : ListView.builder(
+            shrinkWrap: true,
+            itemCount: loraProvider.messages.length,
+            itemBuilder: (context, index) {
+              final msg = loraProvider.messages[index];
+                return ListTile(
+                title: Text("ID: ${msg['id']}", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w100)),
+                subtitle: Text("Lat: ${msg['lat']}, Lon: ${msg['lon']}", style: const TextStyle(fontSize: 15)),
+              );
+              
+            },
+          )
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0XFF2294C9),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              "Close",
+              style: TextStyle(fontSize: 16, color: Colors.white),
+            ),
+          )
+        ],
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
+    final role = Provider.of<UserRoleProvider>(context).role;
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -306,54 +414,9 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       backgroundColor: const Color.fromARGB(255, 255, 255, 255),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 0),
-        child: SizedBox(
-            height: 90,
-            width: 90,
-            child: FloatingActionButton(
-              onPressed: () {
-                Navigator.pushNamed(context, 'sos');
-              },
-              backgroundColor:
-                  Colors.transparent, // set to transparent so gradient shows
-              elevation: 6,
-              shape: const CircleBorder(),
-              child: Container(
-                alignment: Alignment.center,
-                height: 77,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const RadialGradient(
-                    colors: [
-                      Color.fromARGB(255, 255, 145, 145), // lighter red
-                      Color(0xFFB70000), // dark red
-                    ],
-                    center: Alignment.center,
-                    radius: 0.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 6,
-                      offset: Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Text(
-                  'SOS',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 23,
-                    fontFamily: 'SfPro',
-                    color: Colors.white,
-                    letterSpacing: 3,
-                  ),
-                ),
-              ),
-            )),
-      ),
+      floatingActionButton: role == "Rescuer"
+          ? _buildRescuerAlertButton()
+          : _buildCitizenSOSButton(),
       bottomNavigationBar: CustomBottomNav(
         currentIndex: 3, // profile page index
         onTap: (index) {

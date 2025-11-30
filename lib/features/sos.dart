@@ -45,8 +45,9 @@ class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
   }
   
   Future<void> _getUsername() async {
-    setState(() async {
-      _username = await UserService().fetchUsername();
+    final username = await UserService().fetchUsername();
+    setState(() {
+      _username = username;
     });
   }
   Future<void> _initializeSOS() async {

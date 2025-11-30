@@ -12,7 +12,7 @@ class UserService {
   final user = FirebaseAuth.instance.currentUser;
 
   if (user == null) {
-    return "No user found";
+    return "Victim";
   }
 
   try {

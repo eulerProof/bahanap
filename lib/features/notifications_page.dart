@@ -1,4 +1,5 @@
 import 'package:cc206_bahanap/features/lora_provider.dart';
+import 'package:cc206_bahanap/features/rescuer_provider.dart';
 import 'package:cc206_bahanap/features/user_role.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
@@ -165,9 +166,31 @@ class NotificationsPageState extends State<NotificationsPage> {
             itemBuilder: (context, index) {
               final msg = loraProvider.messages[index];
                 return ListTile(
-                title: Text("ID: ${msg['id']}", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w100)),
-                subtitle: Text("Lat: ${msg['lat']}, Lon: ${msg['lon']}", style: const TextStyle(fontSize: 15)),
-              );
+                  title: Text(
+                    "ID: ${msg['id']}",
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w100),
+                  ),
+                  subtitle: Text(
+                    "Lat: ${msg['lat']}, Lon: ${msg['lon']}",
+                    style: const TextStyle(fontSize: 15),
+                  ),
+
+                  // ⭐ Add Confirm button on the right
+                  trailing: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2294C9),
+                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () {
+                      _confirmSOS(msg);   // <-- This is where confirmation happens
+                    },
+                    child: const Text(
+                      "Confirm",
+                      style: TextStyle(fontSize: 14, color: Colors.white),
+                    ),
+                  ),
+                );
               
             },
           )
@@ -191,6 +214,20 @@ class NotificationsPageState extends State<NotificationsPage> {
             ),
           )
         ],
+      ),
+    );
+  }
+  void _confirmSOS(Map<String, dynamic> msg) {
+    final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
+    final rescueProvider = Provider.of<RescueModeProvider>(context, listen: false);
+    // Remove from active list  
+    loraProvider.sendConfirmation(msg, rescueProvider);
+
+    // Optional: You can show a feedback dialog
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("SOS from ${msg['id']} confirmed."),
+        backgroundColor: Colors.green,
       ),
     );
   }

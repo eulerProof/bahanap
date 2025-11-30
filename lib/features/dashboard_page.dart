@@ -1,4 +1,5 @@
 import 'package:cc206_bahanap/features/lora_provider.dart';
+import 'package:cc206_bahanap/features/rescuer_provider.dart';
 import 'package:cc206_bahanap/features/user_role.dart';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
@@ -128,9 +129,31 @@ class _DashboardPageState extends State<DashboardPage> {
             itemBuilder: (context, index) {
               final msg = loraProvider.messages[index];
                 return ListTile(
-                title: Text("ID: ${msg['id']}", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w100)),
-                subtitle: Text("Lat: ${msg['lat']}, Lon: ${msg['lon']}", style: const TextStyle(fontSize: 15)),
-              );
+                  title: Text(
+                    "ID: ${msg['id']}",
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w100),
+                  ),
+                  subtitle: Text(
+                    "Lat: ${msg['lat']}, Lon: ${msg['lon']}",
+                    style: const TextStyle(fontSize: 15),
+                  ),
+
+                  // ⭐ Add Confirm button on the right
+                  trailing: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2294C9),
+                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () {
+                      _confirmSOS(msg);   // <-- This is where confirmation happens
+                    },
+                    child: const Text(
+                      "Confirm",
+                      style: TextStyle(fontSize: 14, color: Colors.white),
+                    ),
+                  ),
+                );
               
             },
           )
@@ -157,7 +180,20 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
+  void _confirmSOS(Map<String, dynamic> msg) {
+    final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
+    final rescueProvider = Provider.of<RescueModeProvider>(context, listen: false);
+    // Remove from active list  
+    loraProvider.sendConfirmation(msg, rescueProvider);
 
+    // Optional: You can show a feedback dialog
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("SOS from ${msg['id']} confirmed."),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
   Widget buildCategorySection(String title, List<String> items) {
     return Card(
       elevation: 2,
@@ -890,6 +926,68 @@ class _DashboardPageState extends State<DashboardPage> {
                           },
                         ),
                       ),
+                      if (role == "Rescuer")
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                          child: Container(
+                            padding: const EdgeInsets.fromLTRB(0, 10, 0, 15),
+                            decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(23),
+                                gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xff055A92),
+                                      Color(0xff0899F8),
+                                    ],
+                                    begin: FractionalOffset(0.0, 0.0),
+                                    end: FractionalOffset(0.0, 1.0))),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const SizedBox(height: 6),
+                                const Text(
+                                  'Rescue Mode',
+                                  style: TextStyle(
+                                      letterSpacing: 0.5,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'SfPro',
+                                      shadows: [
+                                        Shadow(
+                                          offset: Offset(2.0, 3.0),
+                                          blurRadius: 6.0,
+                                          color: Colors.black54,
+                                        ),
+                                      ],
+                                      color: Colors.white),
+                                  textAlign: TextAlign.start,
+                                ), const Text(
+                                  'Enable to send location to admin',
+                                  style: TextStyle(
+                                      
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'SfPro',
+                                      
+                                      color: Colors.white),
+                                  textAlign: TextAlign.center,
+                                ),
+                                Center(
+                                  child: Consumer<RescueModeProvider>(
+                                  builder: (context, rescue, _) {
+                                    return Switch(
+                                      value: rescue.isRescueModeOn,
+                                      onChanged: (value) => rescue.toggleRescueMode(),
+                                    );
+                                  },
+                                ),
+                                )
+                              ],
+                            ),
+                          ),                          
+                      )
+                      else
+                        const SizedBox.shrink(),
                     ],
                   ),
                 ),

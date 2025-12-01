@@ -35,7 +35,34 @@ class NotificationsPageState extends State<NotificationsPage> {
   void initState() {
     super.initState();
     _fetchUserName();
-    _startReceivingMessages();
+    final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
+  loraProvider.onNewAssignment = () {
+    final lastMsg = loraProvider.messages.last;
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text(
+          "New SOS Assignment",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          "You have a new SOS assignment!\n\n"
+          "ID: ${lastMsg['id']}\n"
+          "Lat: ${lastMsg['lat']}, Lon: ${lastMsg['lon']}",
+          style: const TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  };
   }
 
   @override
@@ -43,52 +70,7 @@ class NotificationsPageState extends State<NotificationsPage> {
     super.dispose();
   }
 
-  void _startReceivingMessages() {
-    _fetchMessage(); // Fetch once immediately
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) => _fetchMessage());
-  }
-
-  Future<void> _fetchMessage() async {
-    try {
-      final wifiName = await NetworkInfo().getWifiName();
-
-      if (wifiName == null) {
-        // setState(() {
-        //   _responseMessage = "Not connected to any WiFi network.";
-        // });
-        return;
-      }
-
-      String? esp32IP;
-      if (wifiName.contains("Bahanap_Node_A")) {
-        esp32IP = "192.168.4.1";
-      } else if (wifiName.contains("Bahanap_Node_B")) {
-        esp32IP = "192.168.4.2";
-      } else {
-        return;
-      }
-      final response = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
-        if (data is Map<String, dynamic>) {
-          // ✅ Check if we already have this message (by ID or timestamp)
-          final existing = receivedJSON.any((item) => item["id"] == data["id"]);
-
-          if (!existing) {
-            setState(() {
-              receivedJSON.add(data);
-            });
-          }
-        }
-      } else {
-        debugPrint("Failed: ${response.statusCode}");
-      }
-    } catch (e) {
-      debugPrint("Error fetching message: $e");
-    }
-  }
+  
   Widget _buildCitizenSOSButton() {
   return SizedBox(
               height: 90,

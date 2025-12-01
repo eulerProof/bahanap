@@ -140,7 +140,24 @@ class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
       print("Error updating location in Firestore: $e");
     }
   }
+  Future<String> generateSosMid() async {
+  // Get unique device ID
+  DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+  String deviceId;
 
+  if (Theme.of(context).platform == TargetPlatform.android) {
+    AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+    deviceId = androidInfo.id;
+  } else {
+    IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+    deviceId = iosInfo.identifierForVendor!;
+  }
+
+  // Combine with current timestamp in milliseconds
+  String mid = "${deviceId}_${DateTime.now().microsecondsSinceEpoch}";
+
+  return mid;
+}
   Future<void> _sendPostRequest(Position position, String id) async {
     try {
       final wifiName = await NetworkInfo().getWifiName();
@@ -164,11 +181,13 @@ class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
         return;
       }
       // Build JSON payload
+    final sosMid = await generateSosMid();
     final payload = {
       "latitude": position.latitude,
       "longitude": position.longitude,
       "timestamp": DateTime.now().toUtc().toIso8601String(),
-      "uid": id
+      "uid": id,
+      "mid": sosMid
     };
 
     // Send JSON to ESP32
@@ -186,11 +205,24 @@ class _SosPageState extends State<SosPage> with SingleTickerProviderStateMixin {
     setState(() {
       if (response.statusCode == 200) {
         _status = 'SOS Alert sent!';
-          
-        
       } else {
         _status = 'SOS Alert failed to send. Please try again.';
       }
+
+      // After sending SOS
+      Timer.periodic(Duration(seconds: 1), (timer) async {
+        final ackResponse = await http.get(Uri.parse('http://$esp32IP/lastmessage'));
+        if (ackResponse.statusCode == 200) {
+          final data = jsonDecode(ackResponse.body);
+          if (data['type'] == 'ACK' && data['mid'] == sosMid) {
+            // ACK received
+            setState(() {
+              _status = 'SOS Alert received by base station!';
+            });
+            timer.cancel(); // stop polling
+          }
+        }
+      });
     });
     } catch (e) {
       setState(() {

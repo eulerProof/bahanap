@@ -194,32 +194,60 @@ class _SignInPageState extends State<SignInPage> {
                       child: ElevatedButton(
                         onPressed: () async {
                           try {
-                            final UserCredential credential = await FirebaseAuth
-                                .instance
-                                .signInWithEmailAndPassword(
+                            // 1. Authenticate with Firebase Auth
+                            await FirebaseAuth.instance.signInWithEmailAndPassword(
                               email: _emailController.text.trim(),
                               password: _passwordController.text.trim(),
                             );
-                            await Provider.of<UserRoleProvider>(context, listen: false).loadUserRole();
-                            _showDialog(context, 'Sign-In Successful',
-                                'Welcome back, ${_emailController.text}!');
-                            Future.delayed(const Duration(seconds: 1), () {
-                              Navigator.pushNamed(context, 'dash');
-                            });
+
+                            if (!context.mounted) return;
+
+                            // 2. Load the Role into the Provider
+                            final roleProvider = Provider.of<UserRoleProvider>(context, listen: false);
+                            await roleProvider.loadUserRole();
+
+                            // 🟢 3. CHECK THE LOADED ROLE
+                            if (roleProvider.role == 'Blacklisted') {
+                              
+                              // 🛑 STOP: User is Banned
+                              await FirebaseAuth.instance.signOut(); // Force logout
+                              
+                              if (context.mounted) {
+                                _showDialog(
+                                  context, 
+                                  'Access Denied', 
+                                  'Your account has been blacklisted. You cannot log in.'
+                                );
+                              }
+                              return; // Stop execution here
+                            }
+
+                            // 🟢 4. PROCEED: Login Successful
+                            if (context.mounted) {
+                              _showDialog(context, 'Sign-In Successful',
+                                  'Welcome back, ${_emailController.text}!');
+                              
+                              Future.delayed(const Duration(seconds: 1), () {
+                                if (context.mounted) {
+                                  Navigator.pushNamed(context, 'dash');
+                                }
+                              });
+                            }
+
                           } on FirebaseAuthException catch (e) {
-                            String errorMessage =
-                                'Invalid credentials. Please try again.';
+                            String errorMessage = 'Invalid credentials. Please try again.';
                             if (e.code == 'user-not-found') {
                               errorMessage = 'No user found for that email.';
                             } else if (e.code == 'wrong-password') {
-                              errorMessage =
-                                  'Wrong password provided for that user.';
+                              errorMessage = 'Wrong password provided for that user.';
+                            } else if (e.code == 'invalid-email') {
+                              errorMessage = 'The email address is invalid.';
                             }
-
-                            _showDialog(
-                                context, 'Sign-In Failed', errorMessage);
-                            Navigator.pushNamed(context, 'dash');
+                            _showDialog(context, 'Sign-In Failed', errorMessage);
+                          } catch (e) {
+                            _showDialog(context, 'Error', 'An unexpected error occurred: $e');
                           }
+
                         },
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(300, 60),

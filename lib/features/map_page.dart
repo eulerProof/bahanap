@@ -74,6 +74,34 @@ class _MapPageState extends State<MapPage> {
     _fetchCurrentLocationAndStartUpdates();
     // _listenToOtherUserLocations();
     // _fetchLocationFromModule();
+    
+  loraProvider.onNewAssignment = () {
+    final lastMsg = loraProvider.messages.last;
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text(
+          "New SOS Assignment",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          "You have a new SOS assignment!\n\n"
+          "ID: ${lastMsg['id']}\n"
+          "Lat: ${lastMsg['lat']}, Lon: ${lastMsg['lon']}",
+          style: const TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  };
   }
 
   @override

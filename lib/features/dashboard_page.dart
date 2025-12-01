@@ -51,6 +51,34 @@ class _DashboardPageState extends State<DashboardPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       fetchGuidelines();
     });
+    final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
+    loraProvider.onNewAssignment = () {
+      final lastMsg = loraProvider.messages.last;
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text(
+            "New SOS Assignment",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            "You have a new SOS assignment!\n\n"
+            "ID: ${lastMsg['id']}\n"
+            "Lat: ${lastMsg['lat']}, Lon: ${lastMsg['lon']}",
+            style: const TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK"),
+            ),
+          ],
+        ),
+      );
+    };
   }
   Widget _buildCitizenSOSButton() {
   return SizedBox(
@@ -230,103 +258,89 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> fetchGuidelines() async {
   final provider = Provider.of<CustomImageProvider>(context, listen: false);
+  String? esp32IP; // Defaults to null
 
   try {
-    // -----------------------------
-    // 1. Check Internet Availability
-    // -----------------------------
-
-
-    // ---------------------------------------------
-    // 2. If Internet → Load Guidelines from Firestore
-    // ---------------------------------------------
-    
-      try {
-        final base = FirebaseFirestore.instance
-            .collection("disaster_guidelines")
-            .doc("guidelines");
-
-        // Clear data so UI updates fresh
-        provider.clearAll();
-
-        // ---- PRE-DISASTER ----
-        final preSnap = await base.collection("pre_disaster").get();
-        for (var doc in preSnap.docs) {
-          final data = doc.data();
-          if (data["content"] != null) {
-            provider.addPreDisaster(data["content"]);
-          }
-        }
-
-        // ---- DURING-DISASTER ----
-        final duringSnap = await base.collection("during_disaster").get();
-        for (var doc in duringSnap.docs) {
-          final data = doc.data();
-          if (data["content"] != null) {
-            provider.addDuringDisaster(data["content"]);
-          }
-        }
-
-        // ---- POST-DISASTER ----
-        final postSnap = await base.collection("post_disaster").get();
-        for (var doc in postSnap.docs) {
-          final data = doc.data();
-          if (data["content"] != null) {
-            provider.addPostDisaster(data["content"]);
-          }
-        }
-
-        print("SUCCESS: Loaded disaster guidelines from Firestore.");
-        return;
-      } catch (e) {
-        print("ERROR: Firestore fetch failed. Falling back to ESP32. $e");
-      }
-    
-
-    // ---------------------------------------------
-    // 3. No Internet → Attempt Local ESP32 Fallback
-    // ---------------------------------------------
+    // 1. Check WiFi Status
     final wifiName = await NetworkInfo().getWifiName();
 
-    if (wifiName == null) {
-      setState(() {
-        _responseMessage = "No WiFi connection detected.";
-      });
-      return;
-    }
-
-    String? esp32IP;
-    if (wifiName.contains("Bahanap_Node_A")) {
-      esp32IP = "192.168.4.1";
-    } else if (wifiName.contains("Bahanap_Node_B")) {
-      esp32IP = "192.168.4.2";
-    } else {
-      setState(() {
-        _responseMessage = "Not connected to a valid ESP32 node WiFi.";
-      });
-      return;
-    }
-
-    final response = await http.get(Uri.parse('http://$esp32IP/guidelines'));
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-
-      if (data["category"] == "Pre-disaster") {
-        provider.addPreDisaster(data["content"]);
-      } else if (data["category"] == "During disaster") {
-        provider.addDuringDisaster(data["content"]);
-      } else if (data["category"] == "Post-disaster") {
-        provider.addPostDisaster(data["content"]);
+    // 2. Determine IP if connected to LoRa
+    if (wifiName != null) {
+      if (wifiName.contains("Bahanap_Node_A")) {
+        esp32IP = "192.168.4.1";
+      } else if (wifiName.contains("Bahanap_Node_B")) {
+        esp32IP = "192.168.4.2";
       }
-    } else {
-      print("ESP32 fetch failed: ${response.statusCode}");
     }
+
+    // ---------------------------------------------------------
+    // SCENARIO A: Connected to LoRa (ESP32)
+    // ---------------------------------------------------------
+    if (esp32IP != null) {
+      print("Connected to LoRa: $wifiName. Fetching from ESP32...");
+      try {
+        final response = await http.get(Uri.parse('http://$esp32IP/guidelines'))
+            .timeout(const Duration(seconds: 5)); // Add timeout so it doesn't hang
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          // Assuming your provider handles these methods
+          if (data["category"] == "pre_disaster") {
+            provider.addPreDisaster(data["content"]);
+          } else if (data["category"] == "during_disaster") {
+            provider.addDuringDisaster(data["content"]);
+          } else if (data["category"] == "post_disaster") {
+            provider.addPostDisaster(data["content"]);
+          }
+          return; // 🟢 SUCCESS: Exit function, we got data from ESP32.
+        }
+      } catch (e) {
+        print("ESP32 Fetch failed ($e). Falling through to Firebase...");
+        // Don't return here; let it fall through to Scenario B
+      }
+    }
+
+    // ---------------------------------------------------------
+    // SCENARIO B: Not LoRa, OR LoRa Failed (Firebase Fallback)
+    // ---------------------------------------------------------
+    print("Fetching from Firebase (Internet Mode)...");
+    
+    try {
+      final base = FirebaseFirestore.instance
+          .collection("disaster_guidelines")
+          .doc("guidelines");
+
+      // Clear data so UI updates fresh
+      // provider.clearAll(); // Uncomment if you want to wipe previous data first
+
+      // Helper to fetch and add to provider
+      Future<void> fetchCollection(String colName, Function(String) addMethod) async {
+        final snap = await base.collection(colName).get();
+        for (var doc in snap.docs) {
+          final data = doc.data();
+          if (data["content"] != null) {
+            addMethod(data["content"]);
+          }
+        }
+      }
+
+      await fetchCollection("pre_disaster", provider.addPreDisaster);
+      await fetchCollection("during_disaster", provider.addDuringDisaster);
+      await fetchCollection("post_disaster", provider.addPostDisaster);
+
+      print("SUCCESS: Loaded disaster guidelines from Firestore.");
+
+    } catch (e) {
+      print("ERROR: Firestore fetch failed. $e");
+      setState(() {
+        _responseMessage = "Failed to load guidelines from both LoRa and Internet.";
+      });
+    }
+
   } catch (e) {
-    print("ERROR fetching guidelines: $e");
+    print("CRITICAL ERROR in fetchGuidelines: $e");
   }
 }
-
   void _showGuidelines() async {
     final provider = Provider.of<CustomImageProvider>(context, listen: false);
     await fetchGuidelines();
@@ -422,10 +436,29 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _signOut() async {
-    await FirebaseAuth.instance.signOut();
-    UserService().clear(); 
-    Navigator.pushReplacementNamed(context, 'welcome');
-  }
+    try {
+      // 🟢 1. Capture Providers BEFORE doing async work (Safety)
+      // Use listen: false so this doesn't trigger a rebuild during disposal
+      final rescueProvider = Provider.of<RescueModeProvider>(context, listen: false);
+
+      // 🟢 2. Stop EVERYTHING (Rescue Mode + Assignment Polling)
+      // Calling these is safe even if they aren't currently running.
+      rescueProvider.stopRescueMode(); 
+      
+      // 🟢 3. Clear Local User Data
+      UserService().clear(); 
+
+      // 🟢 4. Sign out of Firebase
+      await FirebaseAuth.instance.signOut();
+
+      // 🟢 5. Navigate safely
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, 'welcome');
+      }
+    } catch (e) {
+      print("Error signing out: $e");
+    }
+}
 
   Future<void> _fetchLocation() async {
     _serviceEnabled = await location.serviceEnabled();
@@ -977,7 +1010,14 @@ class _DashboardPageState extends State<DashboardPage> {
                                   builder: (context, rescue, _) {
                                     return Switch(
                                       value: rescue.isRescueModeOn,
-                                      onChanged: (value) => rescue.toggleRescueMode(),
+                                      onChanged: (val) {
+                                        if (val) {
+                                          // 🟢 Pass 'context' so it can find the LoRaProvider
+                                          rescue.toggleRescueMode(context); 
+                                        } else {
+                                          rescue.stopRescueMode();
+                                        }
+                                      },
                                     );
                                   },
                                 ),

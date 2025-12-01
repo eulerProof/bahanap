@@ -12,7 +12,7 @@ import 'custom_bottom_nav.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
-
+  
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
@@ -23,6 +23,43 @@ class _ProfilePageState extends State<ProfilePage> {
   final User? user = FirebaseAuth.instance.currentUser;
   bool showLiveCoordinates = true;
   File? _imageFile;
+  @override
+  void initState(){
+    super.initState();
+    final loraProvider = Provider.of<LoRaProvider>(context, listen: false);
+  loraProvider.onNewAssignment = () {
+    final lastMsg = loraProvider.messages.last;
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text(
+          "New SOS Assignment",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          "You have a new SOS assignment!\n\n"
+          "ID: ${lastMsg['id']}\n"
+          "Lat: ${lastMsg['lat']}, Lon: ${lastMsg['lon']}",
+          style: const TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  };
+  }
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   Future<void> _signOut() async {
     await FirebaseAuth.instance.signOut();
     Navigator.pushReplacementNamed(context, 'welcome');
